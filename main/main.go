@@ -2,13 +2,10 @@
 package main
 
 import (
-	"fmt"
-
-	"../cmd"
+	"../startup"
 )
 
 func main() {
 
-	cmd.Parse()
-
+	startup.ParseCmd()
 }
