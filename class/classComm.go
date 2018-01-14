@@ -44,7 +44,7 @@ func initUserClassPath(userPath string) {
 //初始化启动类和拓展类路径
 func initBootstrapClassPath() {
 	classpath := os.Getenv("classpath")
-	if classpath != nil {
+	if classpath != "" {
 		dir, err := NewDirEntry(classpath, false)
 		if err == nil {
 			BootstrapClassPath = append(BootstrapClassPath, dir)
