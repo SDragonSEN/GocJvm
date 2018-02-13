@@ -1,5 +1,10 @@
 package memCtrl
 
+import (
+	"reflect"
+	"unsafe"
+)
+
 /******************************************************************
     []byte转int64型
 ******************************************************************/
@@ -32,4 +37,11 @@ func WriteHeader(nodeHeadr NodeHeader, b []byte) {
 	Uint32ToBytes(nodeHeadr.PreNode, b[4:8])
 	Uint32ToBytes(nodeHeadr.NextNode, b[8:12])
 	nodeHeadr.Type = b[12]
+}
+
+/*******************************************************************
+	[]byte转unsafe.Pointer型
+******************************************************************/
+func BytesToUnsafePointer(b []byte) unsafe.Pointer {
+	return unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&b)).Data)
 }

@@ -7,81 +7,52 @@ import (
 )
 
 var memory []byte
-var recycleMemIndex uint32 //可回收空间起始地址
 var memSize uint32
+var symHeader *SymbolItem
 
 /******************************************************************
-    内存空间初始化，参数为内存大小
+    内存空间初始化，参数为 1、内存大小；
 ******************************************************************/
 func Init(size uint32) {
-	InitEx(size, size/2)
-}
 
-/******************************************************************
-    内存空间初始化，参数为 1、内存大小；2、可回收空间起始地址
-******************************************************************/
-func InitEx(size uint32, index uint32) {
-
-	if index > size || size < MEM_HEADER_SIZE*2 || size-index+1 < MEM_HEADER_SIZE || index < MEM_HEADER_SIZE {
-		fmt.Println("memCtrl:InitEx():参数错误,size,index:", size, index)
+	if size < MEM_HEADER_SIZE {
+		fmt.Println("memCtrl:InitEx():参数错误,size:", size)
 		os.Exit(-1)
 	}
 	//分配内存
 	memory = make([]byte, size)
-	//设置可回收内存起始地址
-	recycleMemIndex = index
 	memSize = size
+
 	//初始化Constant内存的头结点
-	constantHeader, addr := getConstantHeader()
-	constantHeader.NextNode = INVALID_MEM
-	constantHeader.PreNode = INVALID_MEM
-	constantHeader.Size = MEM_HEADER_SIZE
-	constantHeader.Type = HEADER_NODE
-	WriteHeader(constantHeader, memory[addr:addr+MEM_HEADER_SIZE])
-	//初始化Recycle内存的头结点
-	recycleHeader, addr := getRecycleHeader()
-	recycleHeader.NextNode = INVALID_MEM
-	recycleHeader.PreNode = INVALID_MEM
-	recycleHeader.Size = MEM_HEADER_SIZE
-	recycleHeader.Type = HEADER_NODE
-	WriteHeader(recycleHeader, memory[addr:addr+MEM_HEADER_SIZE])
+	headerNode, addr := getHeader()
+	headerNode.NextNode = INVALID_MEM
+	headerNode.PreNode = INVALID_MEM
+	headerNode.Size = MEM_HEADER_SIZE
+	headerNode.Type = HEADER_NODE
+	WriteHeader(headerNode, memory[addr:addr+MEM_HEADER_SIZE])
+
+	//初始化符号表头结点
+	adr, _ := Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
+	symHeader := (*SymbolItem)(BytesToUnsafePointer(memory[adr+MEM_HEADER_SIZE:]))
+	symHeader.Length = 0
+	symHeader.Next = INVALID_MEM
 }
 
 /******************************************************************
-    获取不回收地址的HeaderNode
+    获取HeaderNode
 ******************************************************************/
-func getConstantHeader() (NodeHeader, uint32) {
+func getHeader() (NodeHeader, uint32) {
 	return FormatHeader(memory[0:MEM_HEADER_SIZE]), 0
-}
-
-/******************************************************************
-    获取可回收地址的HeaderNode
-******************************************************************/
-func getRecycleHeader() (NodeHeader, uint32) {
-	return FormatHeader(memory[recycleMemIndex : recycleMemIndex+MEM_HEADER_SIZE]), recycleMemIndex
-}
-
-/******************************************************************
-    分配内存，返回地址
-******************************************************************/
-func Malloc(size uint32, memType uint8) (uint32, error) {
-	return MallocEX(size, memType, RECYCLE)
 }
 
 /******************************************************************
     分配内存(指定类型)，返回地址
 ******************************************************************/
-func MallocEX(size uint32, memType uint8, memAttr uint8) (uint32, error) {
+func Malloc(size uint32, memType uint8) (uint32, error) {
 	var header NodeHeader
 	var addr uint32
-	var end uint32
-	if memAttr == CONSTANT {
-		header, addr = getConstantHeader()
-		end = recycleMemIndex
-	} else {
-		header, addr = getRecycleHeader()
-		end = memSize
-	}
+
+	header, addr = getHeader()
 
 	for header.NextNode != INVALID_MEM {
 		/* 两个节点之间是否有足够大小 */
@@ -112,7 +83,7 @@ func MallocEX(size uint32, memType uint8, memAttr uint8) (uint32, error) {
 		header = FormatHeader(memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
 	}
 	/* 最后一个节点之后有没有足够的内存 */
-	if (end - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
+	if (memSize - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
 		newAddr := addr + header.Size
 		newNode := FormatHeader(memory[newAddr : newAddr+MEM_HEADER_SIZE])
 		newNode.PreNode = addr
@@ -130,13 +101,28 @@ func MallocEX(size uint32, memType uint8, memAttr uint8) (uint32, error) {
 		return newAddr, nil
 	}
 
-	return 0, errors.New("No Enough Memory!")
+	return 0, errors.New("Malloc():No Enough Memory!")
 }
 
 /******************************************************************
     释放内存
 ******************************************************************/
 func MemFree(addr int) error {
+	if addr == 0 {
+		return errors.New("MemFree():Can't Free HeaderNode!")
+	}
+	deleteNode := FormatHeader(memory[addr : addr+MEM_HEADER_SIZE])
+
+	/* 修改下一个节点前指针 */
+	if deleteNode.NextNode != INVALID_MEM {
+		nextNode := FormatHeader(memory[deleteNode.NextNode : deleteNode.NextNode+MEM_HEADER_SIZE])
+		nextNode.PreNode = deleteNode.PreNode
+		WriteHeader(nextNode, memory[deleteNode.NextNode:deleteNode.NextNode+MEM_HEADER_SIZE])
+	}
+	/* 修改上一个节点后指针 */
+	preNode := FormatHeader(memory[deleteNode.PreNode : deleteNode.PreNode+MEM_HEADER_SIZE])
+	preNode.NextNode = deleteNode.NextNode
+	WriteHeader(preNode, memory[deleteNode.PreNode:deleteNode.PreNode+MEM_HEADER_SIZE])
 	return nil
 }
 
@@ -151,6 +137,5 @@ func ReAlloc(size int) (int, error) {
     Log内存信息
 ******************************************************************/
 func LogMem() {
-	fmt.Println("可回收内存起始索引:", recycleMemIndex)
 	fmt.Println(memory)
 }
