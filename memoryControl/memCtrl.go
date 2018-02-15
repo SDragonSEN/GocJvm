@@ -8,7 +8,7 @@ import (
 
 var memory []byte
 var memSize uint32
-var symHeader *SymbolItem
+var symHeaderAdr uint32
 
 /******************************************************************
     内存空间初始化，参数为 1、内存大小；
@@ -32,8 +32,8 @@ func Init(size uint32) {
 	WriteHeader(headerNode, memory[addr:addr+MEM_HEADER_SIZE])
 
 	//初始化符号表头结点
-	adr, _ := Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
-	symHeader := (*SymbolItem)(BytesToUnsafePointer(memory[adr+MEM_HEADER_SIZE:]))
+	symHeaderAdr, _ = Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
+	symHeader := (*SymbolItem)(BytesToUnsafePointer(memory[symHeaderAdr:]))
 	symHeader.Length = 0
 	symHeader.Next = INVALID_MEM
 }
@@ -98,7 +98,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 
 		header.NextNode = newAddr
 		WriteHeader(header, memory[addr:addr+MEM_HEADER_SIZE])
-		return newAddr, nil
+		return newAddr + MEM_HEADER_SIZE, nil
 	}
 
 	return 0, errors.New("Malloc():No Enough Memory!")
@@ -108,10 +108,10 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
     释放内存
 ******************************************************************/
 func MemFree(addr int) error {
-	if addr == 0 {
+	if addr == 0 || addr == MEM_HEADER_SIZE {
 		return errors.New("MemFree():Can't Free HeaderNode!")
 	}
-	deleteNode := FormatHeader(memory[addr : addr+MEM_HEADER_SIZE])
+	deleteNode := FormatHeader(memory[addr-MEM_HEADER_SIZE : addr])
 
 	/* 修改下一个节点前指针 */
 	if deleteNode.NextNode != INVALID_MEM {
