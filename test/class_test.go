@@ -83,3 +83,21 @@ func Test_DirEntry_Case4(t *testing.T) {
 		t.Error("读取失败，err不为空")
 	}
 }
+
+/*********************************************************
+测试对象:Object
+测试内容:从classpath中读取Object类
+*********************************************************/
+func Test_ReadClass_Case1(t *testing.T) {
+	class.InitClassPath("")
+
+	data, err := class.ReadClass("java.lang.Object")
+
+	if data == nil {
+		t.Error("读取失败，内容为空")
+	}
+
+	if err != nil {
+		t.Error("读取失败，err不为空")
+	}
+}

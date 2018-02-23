@@ -1,6 +1,8 @@
 package class
 
 import (
+	"errors"
+
 	"os"
 	"strings"
 )
@@ -15,6 +17,33 @@ var UserClassPath []Class      //用户类路径
 
 func InitClassPath(userPath string) {
 	initUserClassPath(userPath)
+	initBootstrapClassPath()
+}
+
+/******************************************************************
+    根据类名(完全限定名,包之间用 . 分隔)读取.class文件。
+	顺序:Bootstrap Extension User
+******************************************************************/
+func ReadClass(classname string) ([]byte, error) {
+	for _, boot := range BootstrapClassPath {
+		context, err := boot.ReadClass(classname)
+		if nil == err {
+			return context, err
+		}
+	}
+	for _, extension := range ExtensionClassPath {
+		context, err := extension.ReadClass(classname)
+		if nil == err {
+			return context, err
+		}
+	}
+	for _, user := range UserClassPath {
+		context, err := user.ReadClass(classname)
+		if nil == err {
+			return context, err
+		}
+	}
+	return nil, errors.New("class not found")
 }
 
 //指定用户Class路径,即-cp后的路径
@@ -44,13 +73,15 @@ func initUserClassPath(userPath string) {
 //初始化启动类和拓展类路径
 func initBootstrapClassPath() {
 	classpath := os.Getenv("classpath")
+
 	if classpath != "" {
-		dir, err := NewDirEntry(classpath, false)
+		dir, err := NewDirEntry(classpath+"/lib", true)
 		if err == nil {
 			BootstrapClassPath = append(BootstrapClassPath, dir)
 		}
-		dir, err = NewDirEntry(classpath+"/lib/ext", false)
-
-		ExtensionClassPath = append(ExtensionClassPath, dir)
+		dir, err = NewDirEntry(classpath+"/lib/ext", true)
+		if err == nil {
+			ExtensionClassPath = append(ExtensionClassPath, dir)
+		}
 	}
 }

@@ -23,14 +23,14 @@ func PutSymbol(symbol []byte) uint32 {
 	newSym := (*SymbolItem)(BytesToUnsafePointer(memory[newSymAdr:]))
 	newSym.Length = uint32(len(symbol))
 	newSym.Next = INVALID_MEM
-	copy(memory[newSymAdr+SYMBOL_HEADER_SIZE:newSymAdr+SYMBOL_HEADER_SIZE+newSym.Next], symbol)
+	copy(memory[newSymAdr+SYMBOL_HEADER_SIZE:newSymAdr+SYMBOL_HEADER_SIZE+newSym.Length], symbol)
 	return newSymAdr
 }
 
 /***********************************
  获取符号
 ************************************/
-func getSymbol(adr uint32) []byte {
+func GetSymbol(adr uint32) []byte {
 	symbol := (*SymbolItem)(BytesToUnsafePointer(memory[adr:]))
 	return memory[adr+SYMBOL_HEADER_SIZE : adr+SYMBOL_HEADER_SIZE+symbol.Length]
 }
