@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"../class"
+	"../classAnaly"
 )
 
 /*********************************************************
@@ -100,4 +101,13 @@ func Test_ReadClass_Case1(t *testing.T) {
 	if err != nil {
 		t.Error("读取失败，err不为空")
 	}
+}
+
+/*********************************************************
+测试对象:Object
+测试内容:从classpath中读取Object类
+*********************************************************/
+func Test_AnalyClass_Case1(t *testing.T) {
+	classAnaly.LoadClass("java.lang.Object")
+
 }

@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"../comFunc"
 )
 
-var memory []byte
+var Memory []byte
 var memSize uint32
 var symHeaderAdr uint32
 
@@ -20,7 +22,7 @@ func Init(size uint32) {
 		os.Exit(-1)
 	}
 	//分配内存
-	memory = make([]byte, size)
+	Memory = make([]byte, size)
 	memSize = size
 
 	//初始化Constant内存的头结点
@@ -29,11 +31,11 @@ func Init(size uint32) {
 	headerNode.PreNode = INVALID_MEM
 	headerNode.Size = MEM_HEADER_SIZE
 	headerNode.Type = HEADER_NODE
-	WriteHeader(headerNode, memory[addr:addr+MEM_HEADER_SIZE])
+	WriteHeader(headerNode, Memory[addr:addr+MEM_HEADER_SIZE])
 
 	//初始化符号表头结点
 	symHeaderAdr, _ = Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
-	symHeader := (*SymbolItem)(BytesToUnsafePointer(memory[symHeaderAdr:]))
+	symHeader := (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[symHeaderAdr:]))
 	symHeader.Length = 0
 	symHeader.Next = INVALID_MEM
 }
@@ -42,7 +44,7 @@ func Init(size uint32) {
     获取HeaderNode
 ******************************************************************/
 func getHeader() (NodeHeader, uint32) {
-	return FormatHeader(memory[0:MEM_HEADER_SIZE]), 0
+	return FormatHeader(Memory[0:MEM_HEADER_SIZE]), 0
 }
 
 /******************************************************************
@@ -59,45 +61,45 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		if (header.NextNode - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
 			/* 分配新的节点,并初始化Header信息 */
 			newAddr := addr + header.Size
-			newNode := FormatHeader(memory[newAddr : newAddr+MEM_HEADER_SIZE])
+			newNode := FormatHeader(Memory[newAddr : newAddr+MEM_HEADER_SIZE])
 			newNode.PreNode = addr
 			newNode.NextNode = header.NextNode
 			newNode.Size = size + MEM_HEADER_SIZE
 			newNode.Type = memType
-			WriteHeader(newNode, memory[newAddr:newAddr+MEM_HEADER_SIZE])
+			WriteHeader(newNode, Memory[newAddr:newAddr+MEM_HEADER_SIZE])
 			/* 将分配的内存刷成全0 */
 			for i := newAddr + MEM_HEADER_SIZE; i < newAddr+MEM_HEADER_SIZE+size; i++ {
-				memory[i] = 0
+				Memory[i] = 0
 			}
 			/* 修改下一个节点前指针 */
-			nextNode := FormatHeader(memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
+			nextNode := FormatHeader(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
 			nextNode.PreNode = newAddr
-			WriteHeader(nextNode, memory[header.NextNode:header.NextNode+MEM_HEADER_SIZE])
+			WriteHeader(nextNode, Memory[header.NextNode:header.NextNode+MEM_HEADER_SIZE])
 			/* 修改上一个节点后指针 */
 			header.NextNode = newAddr
-			WriteHeader(header, memory[addr:addr+MEM_HEADER_SIZE])
+			WriteHeader(header, Memory[addr:addr+MEM_HEADER_SIZE])
 			return newAddr, nil
 		}
 		/* 指向下一个节点 */
 		addr = header.NextNode
-		header = FormatHeader(memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
+		header = FormatHeader(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
 	}
 	/* 最后一个节点之后有没有足够的内存 */
 	if (memSize - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
 		newAddr := addr + header.Size
-		newNode := FormatHeader(memory[newAddr : newAddr+MEM_HEADER_SIZE])
+		newNode := FormatHeader(Memory[newAddr : newAddr+MEM_HEADER_SIZE])
 		newNode.PreNode = addr
 		newNode.NextNode = INVALID_MEM
 		newNode.Size = size + MEM_HEADER_SIZE
 		newNode.Type = memType
-		WriteHeader(newNode, memory[newAddr:newAddr+MEM_HEADER_SIZE])
+		WriteHeader(newNode, Memory[newAddr:newAddr+MEM_HEADER_SIZE])
 
 		for i := newAddr + MEM_HEADER_SIZE; i < newAddr+MEM_HEADER_SIZE+size; i++ {
-			memory[i] = 0
+			Memory[i] = 0
 		}
 
 		header.NextNode = newAddr
-		WriteHeader(header, memory[addr:addr+MEM_HEADER_SIZE])
+		WriteHeader(header, Memory[addr:addr+MEM_HEADER_SIZE])
 		return newAddr + MEM_HEADER_SIZE, nil
 	}
 
@@ -111,18 +113,18 @@ func MemFree(addr int) error {
 	if addr == 0 || addr == MEM_HEADER_SIZE {
 		return errors.New("MemFree():Can't Free HeaderNode!")
 	}
-	deleteNode := FormatHeader(memory[addr-MEM_HEADER_SIZE : addr])
+	deleteNode := FormatHeader(Memory[addr-MEM_HEADER_SIZE : addr])
 
 	/* 修改下一个节点前指针 */
 	if deleteNode.NextNode != INVALID_MEM {
-		nextNode := FormatHeader(memory[deleteNode.NextNode : deleteNode.NextNode+MEM_HEADER_SIZE])
+		nextNode := FormatHeader(Memory[deleteNode.NextNode : deleteNode.NextNode+MEM_HEADER_SIZE])
 		nextNode.PreNode = deleteNode.PreNode
-		WriteHeader(nextNode, memory[deleteNode.NextNode:deleteNode.NextNode+MEM_HEADER_SIZE])
+		WriteHeader(nextNode, Memory[deleteNode.NextNode:deleteNode.NextNode+MEM_HEADER_SIZE])
 	}
 	/* 修改上一个节点后指针 */
-	preNode := FormatHeader(memory[deleteNode.PreNode : deleteNode.PreNode+MEM_HEADER_SIZE])
+	preNode := FormatHeader(Memory[deleteNode.PreNode : deleteNode.PreNode+MEM_HEADER_SIZE])
 	preNode.NextNode = deleteNode.NextNode
-	WriteHeader(preNode, memory[deleteNode.PreNode:deleteNode.PreNode+MEM_HEADER_SIZE])
+	WriteHeader(preNode, Memory[deleteNode.PreNode:deleteNode.PreNode+MEM_HEADER_SIZE])
 	return nil
 }
 
@@ -137,5 +139,5 @@ func ReAlloc(size int) (int, error) {
     Log内存信息
 ******************************************************************/
 func LogMem() {
-	fmt.Println(memory)
+	fmt.Println(Memory)
 }
