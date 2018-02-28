@@ -26,12 +26,11 @@ func Init(size uint32) {
 	memSize = size
 
 	//初始化Constant内存的头结点
-	headerNode, addr := getHeader()
+	headerNode, _ := getHeader()
 	headerNode.NextNode = INVALID_MEM
 	headerNode.PreNode = INVALID_MEM
 	headerNode.Size = MEM_HEADER_SIZE
 	headerNode.Type = HEADER_NODE
-	WriteHeader(headerNode, Memory[addr:addr+MEM_HEADER_SIZE])
 
 	//初始化符号表头结点
 	symHeaderAdr, _ = Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
@@ -43,15 +42,15 @@ func Init(size uint32) {
 /******************************************************************
     获取HeaderNode
 ******************************************************************/
-func getHeader() (NodeHeader, uint32) {
-	return FormatHeader(Memory[0:MEM_HEADER_SIZE]), 0
+func getHeader() (*NodeHeader, uint32) {
+	return (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[0:MEM_HEADER_SIZE])), 0
 }
 
 /******************************************************************
     分配内存(指定类型)，返回地址
 ******************************************************************/
 func Malloc(size uint32, memType uint8) (uint32, error) {
-	var header NodeHeader
+	var header *NodeHeader
 	var addr uint32
 
 	header, addr = getHeader()
@@ -61,45 +60,44 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		if (header.NextNode - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
 			/* 分配新的节点,并初始化Header信息 */
 			newAddr := addr + header.Size
-			newNode := FormatHeader(Memory[newAddr : newAddr+MEM_HEADER_SIZE])
+			newNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[newAddr : newAddr+MEM_HEADER_SIZE]))
 			newNode.PreNode = addr
 			newNode.NextNode = header.NextNode
 			newNode.Size = size + MEM_HEADER_SIZE
 			newNode.Type = memType
-			WriteHeader(newNode, Memory[newAddr:newAddr+MEM_HEADER_SIZE])
+
 			/* 将分配的内存刷成全0 */
 			for i := newAddr + MEM_HEADER_SIZE; i < newAddr+MEM_HEADER_SIZE+size; i++ {
 				Memory[i] = 0
 			}
 			/* 修改下一个节点前指针 */
-			nextNode := FormatHeader(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
+			nextNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE]))
 			nextNode.PreNode = newAddr
-			WriteHeader(nextNode, Memory[header.NextNode:header.NextNode+MEM_HEADER_SIZE])
+
 			/* 修改上一个节点后指针 */
 			header.NextNode = newAddr
-			WriteHeader(header, Memory[addr:addr+MEM_HEADER_SIZE])
+
 			return newAddr, nil
 		}
 		/* 指向下一个节点 */
 		addr = header.NextNode
-		header = FormatHeader(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE])
+		header = (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE]))
 	}
 	/* 最后一个节点之后有没有足够的内存 */
 	if (memSize - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
 		newAddr := addr + header.Size
-		newNode := FormatHeader(Memory[newAddr : newAddr+MEM_HEADER_SIZE])
+		newNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[newAddr : newAddr+MEM_HEADER_SIZE]))
 		newNode.PreNode = addr
 		newNode.NextNode = INVALID_MEM
 		newNode.Size = size + MEM_HEADER_SIZE
 		newNode.Type = memType
-		WriteHeader(newNode, Memory[newAddr:newAddr+MEM_HEADER_SIZE])
 
 		for i := newAddr + MEM_HEADER_SIZE; i < newAddr+MEM_HEADER_SIZE+size; i++ {
 			Memory[i] = 0
 		}
 
 		header.NextNode = newAddr
-		WriteHeader(header, Memory[addr:addr+MEM_HEADER_SIZE])
+
 		return newAddr + MEM_HEADER_SIZE, nil
 	}
 
@@ -113,18 +111,18 @@ func MemFree(addr int) error {
 	if addr == 0 || addr == MEM_HEADER_SIZE {
 		return errors.New("MemFree():Can't Free HeaderNode!")
 	}
-	deleteNode := FormatHeader(Memory[addr-MEM_HEADER_SIZE : addr])
+	deleteNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[addr-MEM_HEADER_SIZE : addr]))
 
 	/* 修改下一个节点前指针 */
 	if deleteNode.NextNode != INVALID_MEM {
-		nextNode := FormatHeader(Memory[deleteNode.NextNode : deleteNode.NextNode+MEM_HEADER_SIZE])
+		nextNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[deleteNode.NextNode : deleteNode.NextNode+MEM_HEADER_SIZE]))
 		nextNode.PreNode = deleteNode.PreNode
-		WriteHeader(nextNode, Memory[deleteNode.NextNode:deleteNode.NextNode+MEM_HEADER_SIZE])
+
 	}
 	/* 修改上一个节点后指针 */
-	preNode := FormatHeader(Memory[deleteNode.PreNode : deleteNode.PreNode+MEM_HEADER_SIZE])
+	preNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[deleteNode.PreNode : deleteNode.PreNode+MEM_HEADER_SIZE]))
 	preNode.NextNode = deleteNode.NextNode
-	WriteHeader(preNode, Memory[deleteNode.PreNode:deleteNode.PreNode+MEM_HEADER_SIZE])
+
 	return nil
 }
 

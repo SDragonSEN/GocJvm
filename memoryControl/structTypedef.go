@@ -1,9 +1,5 @@
 package memCtrl
 
-import (
-	"../comFunc"
-)
-
 //节点头信息
 type NodeHeader struct {
 	Size     uint32
@@ -27,20 +23,3 @@ const (
 	HEADER_NODE = iota //头节点
 	SYMBOL_NODE        //符号表节点
 )
-
-/******************************************************************
-    []byte转NodeHeader型
-******************************************************************/
-func FormatHeader(b []byte) NodeHeader {
-	return NodeHeader{Size: comFunc.BytesToUint32(b[0:4]), PreNode: comFunc.BytesToUint32(b[4:8]), NextNode: comFunc.BytesToUint32(b[8:12]), Type: b[12]}
-}
-
-/******************************************************************
-    NodeHeader转[]byte型
-******************************************************************/
-func WriteHeader(nodeHeadr NodeHeader, b []byte) {
-	comFunc.Uint32ToBytes(nodeHeadr.Size, b[0:4])
-	comFunc.Uint32ToBytes(nodeHeadr.PreNode, b[4:8])
-	comFunc.Uint32ToBytes(nodeHeadr.NextNode, b[8:12])
-	nodeHeadr.Type = b[12]
-}
