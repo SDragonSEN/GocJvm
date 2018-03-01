@@ -48,6 +48,7 @@ func ReadClass(classname string) ([]byte, error) {
 
 //指定用户Class路径,即-cp后的路径
 func initUserClassPath(userPath string) {
+	UserClassPath = make([]Class, 0)
 	paths := strings.Split(userPath, ";")
 	for _, path := range paths {
 		if strings.HasSuffix(path, ".jar") || strings.HasSuffix(path, ".zip") {
@@ -72,6 +73,9 @@ func initUserClassPath(userPath string) {
 
 //初始化启动类和拓展类路径
 func initBootstrapClassPath() {
+	BootstrapClassPath = make([]Class, 0)
+	ExtensionClassPath = make([]Class, 0)
+
 	classpath := os.Getenv("classpath")
 
 	if classpath != "" {

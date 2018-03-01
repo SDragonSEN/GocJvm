@@ -13,8 +13,11 @@ import (
 *********************************************************/
 func Test_SymbolTable_Case1(t *testing.T) {
 	memCtrl.Init(1024)
-	memAdr1 := memCtrl.PutSymbol([]byte("Object"))
-	memAdr2 := memCtrl.PutSymbol([]byte("Object"))
+	memAdr1, err1 := memCtrl.PutSymbol([]byte("Object"))
+	memAdr2, err2 := memCtrl.PutSymbol([]byte("Object"))
+	if err1 != nil || err2 != nil {
+		t.Error("分配失败!")
+	}
 	if memAdr1 != memAdr2 {
 		t.Error("两次返回的地址不一致:", memAdr1, " ", memAdr2)
 	}
@@ -26,7 +29,7 @@ func Test_SymbolTable_Case1(t *testing.T) {
 *********************************************************/
 func Test_SymbolTable_Case2(t *testing.T) {
 	memCtrl.Init(1024)
-	memAdr1 := memCtrl.PutSymbol([]byte("Object"))
+	memAdr1, _ := memCtrl.PutSymbol([]byte("Object"))
 	sym := memCtrl.GetSymbol(memAdr1)
 	if bytes.Compare([]byte("Object"), sym) != 0 {
 		t.Error("获取符号内容错误")

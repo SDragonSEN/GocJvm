@@ -5,6 +5,7 @@ import (
 
 	"../class"
 	"../classAnaly"
+	"../memoryControl"
 )
 
 /*********************************************************
@@ -104,10 +105,16 @@ func Test_ReadClass_Case1(t *testing.T) {
 }
 
 /*********************************************************
-测试对象:Object
-测试内容:从classpath中读取Object类
+测试对象:类加载
+测试内容:加载Object类
 *********************************************************/
 func Test_AnalyClass_Case1(t *testing.T) {
-	classAnaly.LoadClass("java.lang.Object")
+	class.InitClassPath("")
+	memCtrl.Init(2048)
 
+	_, err := classAnaly.LoadClass("java.lang.Object")
+
+	if err != nil {
+		t.Error("解析失败，err不为空")
+	}
 }
