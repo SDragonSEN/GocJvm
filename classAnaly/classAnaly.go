@@ -21,6 +21,11 @@ type CONSTANT_TYPE_32 struct {
 type CONSTANT_TYPE_INT struct {
 	param int32
 }*/
+type CLASS_INFO struct {
+	accessFlag     uint16 //可访问属性
+	className      uint16 //类名
+	superClassName uint16 //父类名
+}
 
 var magicNum = []byte{0xCA, 0xFE, 0xBA, 0xBE}
 
@@ -42,6 +47,14 @@ func LoadClass(className string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	//读取类信息
+	context, classInfo := readClassInfo(context)
+	result = append(result, classInfo...)
+
+	//读取接口信息
+	context, interfaceInfo := readInterfaces(context)
+	result = append(result, interfaceInfo...)
 
 	return result, nil
 }
@@ -76,7 +89,9 @@ func readVersion(context []byte) ([]byte, uint16, uint16) {
 /******************************************************************
     功能:读取常量池
 	入参:文件内容
-    返回值:1、
+    返回值:1、读取后的context
+	      2、解析后的常量池码流
+		  3、error
 ******************************************************************/
 func readConstantPool(context []byte) ([]byte, []byte, error) {
 	//符号数量从1到size-1
@@ -85,7 +100,9 @@ func readConstantPool(context []byte) ([]byte, []byte, error) {
 	var count uint32
 	count = 2
 	//结果
-	result := []byte{}
+	result := make([]byte, 4)
+	leng := (*uint32)(comFunc.BytesToUnsafePointer(result[0:4]))
+	*leng = uint32(size)
 	var i uint16
 	var constantBytes []byte
 	var consume uint32
@@ -299,4 +316,40 @@ func readConstantInterfaceMethodrefInfo(context []byte) ([]byte, uint32) {
 func readConstantNameAndTypeInfo(context []byte) ([]byte, uint32) {
 	//实现同Fieldref_INFO
 	return readConstantFieldrefInfo(context)
+}
+
+/******************************************************************
+    功能:读取class信息
+	入参:文件内容
+    返回值:1、读取后的context
+	      2、解析后的类信息码流
+******************************************************************/
+func readClassInfo(context []byte) ([]byte, []byte) {
+	result := [6]byte{}
+	classInfo := (*CLASS_INFO)(comFunc.BytesToUnsafePointer(result[0:6]))
+	classInfo.accessFlag = comFunc.BytesToUint16(context[0:2])
+	classInfo.className = comFunc.BytesToUint16(context[2:4])
+	classInfo.superClassName = comFunc.BytesToUint16(context[4:6])
+
+	return context[6:], result[:]
+}
+
+/******************************************************************
+    功能:读取interface信息
+	入参:文件内容
+    返回值:1、读取后的context
+	      2、解析后的类信息码流
+******************************************************************/
+func readInterfaces(context []byte) ([]byte, []byte) {
+	interfaceNum := comFunc.BytesToUint16(context[0:2])
+	result := make([]byte, interfaceNum*2+2)
+	num := (*uint16)(comFunc.BytesToUnsafePointer(result[0:2]))
+	*num = interfaceNum
+
+	for i := uint16(0); i < interfaceNum; i++ {
+		num = (*uint16)(comFunc.BytesToUnsafePointer(result[2*i+2 : 2*i+4]))
+		*num = comFunc.BytesToUint16(context[2*i+2 : 2*i+4])
+	}
+
+	return context[interfaceNum*2+2:], result
 }
