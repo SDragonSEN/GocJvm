@@ -3,6 +3,7 @@ package classAnaly
 import (
 	"bytes"
 	"errors"
+	"fmt"
 
 	"../class"
 	"../comFunc"
@@ -23,7 +24,7 @@ type CLASS_INFO struct {
 	SuperClassAddr        uint32 //父类地址,为0代表是Object类
 	AccessFlag            uint16 //可访问属性
 	ConstNum              uint32 //常量数量
-	ParaInfoDev           uint32 //参数信息偏移
+	FiledInfoDev          uint32 //参数信息偏移
 	UnstaticParaDev       uint32 //非static参数地址
 	UnstaticParaSize      uint32 //非static参数大小
 	UnstaticParaTotalSize uint32 //非static参数内存总大小(即，分配实例的大小)
@@ -34,9 +35,47 @@ type CLASS_INFO struct {
 	InterfaceNum          uint32 //接口数量
 }
 
+type FILED_ITEM struct {
+	FiledName    uint32 //字段名(符号表索引)
+	Index        uint32 //实例(包括类实例)中的索引值,从0开始，遇到long和double则跳1
+	FiledInfoDev uint32 //字段描述偏移
+}
+
+type FILED_INFO struct {
+	AccessFlag uint16 //可访问性
+	Descriptor uint32 //描述符(符号表索引)
+	AttriCount uint32 //属性数量
+}
+
+type ATTRI_INFO struct {
+	AttriName uint32 //属性名(符号表中的地址)
+	Length    uint32 //长度
+}
+
+type CONST_PAIR struct {
+	StaticFiledIndex uint32 //static字段索引
+	ConstIndex       uint32 //常量索引
+}
+
 const CLASS_INFO_SIZE = 50
 
+const FILED_ITEM_SIZE = 6
+
+const FILED_INFO_SIZE = 10
+
+const ATTRI_INFO_SIZE = 8
+
 var magicNum = []byte{0xCA, 0xFE, 0xBA, 0xBE}
+
+const FILED_ACC_PUBLIC = 0x0001
+const FILED_ACC_PRIVATE = 0x0002
+const FILED_ACC_PROTECTED = 0x0004
+const FILED_ACC_STATIC = 0x0008
+const FILED_ACC_FINAL = 0x0010
+const FILED_ACC_VOILATIE = 0x0040
+const FILED_ACC_TRANSIENT = 0x0080
+const FILED_ACC_SYNTHETIC = 0x1000
+const FILED_ACC_ENUM = 0x4000
 
 func LoadClass(className string) (uint32, error) {
 
@@ -83,6 +122,34 @@ func LoadClass(className string) (uint32, error) {
 	}
 	classInfo.InterfaceNum = num
 	result = append(result, interfaceInfo...)
+
+	//读取字段信息
+	context, attriInfo, unstatic, static, unstaticSize, staticSize, constPair, err := readFields(context, constPool)
+	classInfo.FiledInfoDev = uint32(len(result))
+
+	//刷新字段的偏移信息
+	for i := uint32(0); i < uint32(len(unstatic)); i += FILED_ITEM_SIZE {
+		fileditem := (*FILED_ITEM)(comFunc.BytesToUnsafePointer(unstatic[i : i+FILED_ITEM_SIZE]))
+		fileditem.FiledInfoDev += classInfo.FiledInfoDev
+	}
+	for i := uint32(0); i < uint32(len(static)); i += FILED_ITEM_SIZE {
+		fileditem := (*FILED_ITEM)(comFunc.BytesToUnsafePointer(static[i : i+FILED_ITEM_SIZE]))
+		fileditem.FiledInfoDev += classInfo.FiledInfoDev
+	}
+	result = append(result, attriInfo...)
+	//静态字段
+	classInfo.StaticParaDev = uint32(len(result))
+	classInfo.StaticParaSize = staticSize * 4
+	result = append(result, static...)
+
+	//非静态字段
+	classInfo.UnstaticParaDev = uint32(len(result))
+	classInfo.UnstaticParaSize = unstaticSize * 4
+	result = append(result, unstatic...)
+
+	//to do,字段总大小计算
+	//to do,静态常量初始化
+	fmt.Println(constPair)
 
 	//保存到内存中
 	memAdr, err := memCtrl.PutClass(classInfo.ClassName, result)
@@ -438,10 +505,118 @@ func readInterfaces(context []byte, constPool []byte) ([]byte, uint32, []byte, e
 
 /******************************************************************
     功能:读取Filed信息
-	入参:文件内容
+	入参:1、文件内容
+	    2、常量池
     返回值:1、读取后的context
-	      2、解析后的类信息码流
+          2、字段描述
+          3、非静态字段信息
+          4、静态字段信息
+          5、非静态字段大小
+          6、静态字段大小
+          7、常量对
+          8、error
 ******************************************************************/
-func readFields(context []byte) ([]byte, []byte) {
-	return nil, nil
+func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint32, uint32, []CONST_PAIR, error) {
+	unstaticNum := uint32(0)
+	staticNum := uint32(0)
+
+	//字段数量
+	filedNum := uint32(comFunc.BytesToUint16(context[0:2]))
+	context = context[2:]
+
+	//字段信息
+	filedInfos := make([]byte, 0)
+	//非静态字段
+	unstaticFileds := make([]byte, 0)
+	//静态字段
+	staticFileds := make([]byte, 0)
+	//常量对
+	constPairs := make([]CONST_PAIR, 0)
+
+	for i := uint32(0); i < filedNum; i++ {
+		filed := make([]byte, FILED_INFO_SIZE)
+		filedInfo := (*FILED_INFO)(comFunc.BytesToUnsafePointer(filed))
+		//可访问性
+		filedInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
+		//字段名
+		filedName, err := GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
+		if err != nil {
+			return nil, nil, nil, nil, 0, 0, nil, err
+		}
+		//描述符
+		filedInfo.Descriptor, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
+		if err != nil {
+			return nil, nil, nil, nil, 0, 0, nil, err
+		}
+		//属性数量
+		filedInfo.AttriCount = uint32(comFunc.BytesToUint16(context[6:8]))
+
+		context = context[8:]
+		for j := uint32(0); j < filedInfo.AttriCount; j++ {
+			attriMem := make([]byte, ATTRI_INFO_SIZE)
+			attri := (*ATTRI_INFO)(comFunc.BytesToUnsafePointer(attriMem))
+			//属性名
+			attri.AttriName, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
+			if err != nil {
+				return nil, nil, nil, nil, 0, 0, nil, err
+			}
+			//属性长度
+			attri.Length = comFunc.BytesToUint32(context[2:6])
+			//判断是否是常量属性
+			constSymbol, err := memCtrl.PutSymbol([]byte("ConstantValue"))
+			if err != nil {
+				return nil, nil, nil, nil, 0, 0, nil, err
+			}
+			//静态常量的处理
+			if attri.AttriName == constSymbol &&
+				(filedInfo.AccessFlag&FILED_ACC_STATIC == FILED_ACC_STATIC) &&
+				(filedInfo.AccessFlag&FILED_ACC_FINAL == FILED_ACC_FINAL) {
+				constValue := uint32(comFunc.BytesToUint32(context[6:8]))
+				constPairs = append(constPairs, CONST_PAIR{staticNum, constValue})
+			}
+			filed = append(filed, attriMem...)
+			//属性内容暂不解析
+			filed = append(filed, context[6:6+attri.Length]...)
+			context = context[6+attri.Length:]
+
+		}
+
+		//字段Item
+		filedMem := make([]byte, FILED_ITEM_SIZE)
+		filedItem := (*FILED_ITEM)(comFunc.BytesToUnsafePointer(filedMem))
+		filedItem.FiledInfoDev = uint32(len(filedInfos))
+		filedItem.FiledName = filedName
+
+		//判断是否是long或double
+		longSymbol, err := memCtrl.PutSymbol([]byte("J"))
+		if err != nil {
+			return nil, nil, nil, nil, 0, 0, nil, err
+		}
+		doubleSymbol, err := memCtrl.PutSymbol([]byte("D"))
+		if err != nil {
+			return nil, nil, nil, nil, 0, 0, nil, err
+		}
+
+		if filedInfo.AccessFlag&FILED_ACC_STATIC == FILED_ACC_STATIC {
+			//静态字段的处理
+			filedItem.Index = staticNum
+			staticFileds = append(staticFileds, filedMem...)
+			staticNum++
+			if longSymbol == filedItem.FiledName ||
+				doubleSymbol == filedItem.FiledName {
+				staticNum++
+			}
+		} else {
+			//非静态字段的处理
+			filedItem.Index = unstaticNum
+			unstaticFileds = append(unstaticFileds, filedMem...)
+			unstaticNum++
+			if longSymbol == filedItem.FiledName ||
+				doubleSymbol == filedItem.FiledName {
+				unstaticNum++
+			}
+		}
+		filedInfos = append(filedInfos, filed...)
+	}
+	return context, filedInfos, unstaticFileds, staticFileds, unstaticNum, staticNum, constPairs, nil
 }
