@@ -11,6 +11,7 @@ import (
 var Memory []byte
 var memSize uint32
 var symHeaderAdr uint32
+var classHeaderAdr uint32
 
 /******************************************************************
     内存空间初始化，参数为 1、内存大小；
@@ -37,6 +38,12 @@ func Init(size uint32) {
 	symHeader := (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[symHeaderAdr:]))
 	symHeader.Length = 0
 	symHeader.Next = INVALID_MEM
+
+	//初始化类表头结点
+	classHeaderAdr, _ = Malloc(CLASS_HEADER_SIZE, 0)
+	classHeader := (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[classHeaderAdr:]))
+	classHeader.ClassName = INVALID_MEM
+	classHeader.Next = INVALID_MEM
 }
 
 /******************************************************************

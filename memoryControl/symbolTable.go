@@ -23,7 +23,7 @@ func PutSymbol(symbol []byte) (uint32, error) {
 
 	newSymAdr, err := Malloc(uint32(SYMBOL_HEADER_SIZE+len(symbol)), SYMBOL_NODE)
 	if err != nil {
-		return 0, errors.New("PutSymbol():内存不足")
+		return INVALID_MEM, errors.New("PutSymbol():内存不足")
 	}
 	curSymbol.Next = newSymAdr
 	newSym := (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[newSymAdr:]))

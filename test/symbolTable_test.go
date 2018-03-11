@@ -16,7 +16,10 @@ func Test_SymbolTable_Case1(t *testing.T) {
 	memAdr1, err1 := memCtrl.PutSymbol([]byte("Object"))
 	memAdr2, err2 := memCtrl.PutSymbol([]byte("Object"))
 	if err1 != nil || err2 != nil {
-		t.Error("分配失败!")
+		t.Error("分配失败1!")
+	}
+	if memAdr1 == memCtrl.INVALID_MEM || memAdr2 == memCtrl.INVALID_MEM {
+		t.Error("分配失败2!")
 	}
 	if memAdr1 != memAdr2 {
 		t.Error("两次返回的地址不一致:", memAdr1, " ", memAdr2)
