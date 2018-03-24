@@ -30,4 +30,7 @@ const (
 	HEADER_NODE = iota //头节点
 	SYMBOL_NODE        //符号表节点
 	CLASS_NODE         //类表节点
+	ACCESS_NODE        //引用类型节点
+	ARRAY_NODE         //数组节点
+	DATA_NODE          //数据节点
 )

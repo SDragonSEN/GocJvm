@@ -7,6 +7,27 @@ import (
 	"../memoryControl"
 )
 
+const ACONST_NULL = 0x01 //null值入栈
+const ICONST_M1 = 0x02   //-1(int)入栈
+const ICONST_0 = 0x03    //0(int)入栈，下同
+const ICONST_1 = 0x04
+const ICONST_2 = 0x05
+const ICONST_3 = 0x06
+const ICONST_4 = 0x07
+const ICONST_5 = 0x08
+const LCONST_0 = 0x09 //0(long)入栈
+const LCONST_1 = 0x0a
+const FCONST_0 = 0x0b //0(float)入栈
+const FCONST_1 = 0x0c
+const FCONST_2 = 0x0d
+const DCONST_0 = 0x0e //0(double)入栈
+const DCONST_1 = 0x0f
+const BIPUSH = 0x10 //操作数byte,拓展成int型入栈
+const SIPUSH = 0x11 //操作数int16,拓展成int型入栈
+const LDC = 0x12    //操作数byte,将常量(int,float,string)入栈
+const LDC_W = 0x13  //操作数int16,将常量入栈
+const LDC2_W = 0x14 //操作数int16,将常量(long,double)入栈
+
 /******************************************************************
     功能:从常量池中读取class name
 	入参:1、常量池

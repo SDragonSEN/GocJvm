@@ -44,6 +44,7 @@ func Init(size uint32) {
 	classHeader := (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[classHeaderAdr:]))
 	classHeader.ClassName = INVALID_MEM
 	classHeader.Next = INVALID_MEM
+
 }
 
 /******************************************************************

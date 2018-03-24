@@ -38,3 +38,13 @@ func Uint32ToBytes(n uint32, b []byte) {
 func BytesToUnsafePointer(b []byte) unsafe.Pointer {
 	return unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&b)).Data)
 }
+
+/*******************************************************************
+	[]byte转arry型
+******************************************************************/
+func BytesToArray(b []byte, width int) unsafe.Pointer {
+	arr := unsafe.Pointer(&b)
+	(*reflect.SliceHeader)(arr).Len /= width
+	(*reflect.SliceHeader)(arr).Cap /= width
+	return arr
+}

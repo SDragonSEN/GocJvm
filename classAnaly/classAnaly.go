@@ -30,10 +30,11 @@ type CLASS_INFO struct {
 	UnstaticParaTotalSize uint32 //非static参数内存总大小(即，分配实例的大小)
 	StaticParaDev         uint32 //static参数地址
 	StaticParaSize        uint32 //static参数大小
-	StaticParaTotalSize   uint32 //static参数内存总大小(即，类变量的大小)
 	InterfaceDev          uint32 //接口定义偏移
 	InterfaceNum          uint32 //接口数量
 }
+
+const CLASS_INFO_SIZE = 46
 
 type FILED_ITEM struct {
 	FiledName    uint32 //字段名(符号表索引)
@@ -41,29 +42,48 @@ type FILED_ITEM struct {
 	FiledInfoDev uint32 //字段描述偏移
 }
 
+const FILED_ITEM_SIZE = 6
+
 type FILED_INFO struct {
 	AccessFlag uint16 //可访问性
 	Descriptor uint32 //描述符(符号表索引)
 	AttriCount uint32 //属性数量
 }
 
+const FILED_INFO_SIZE = 10
+
 type ATTRI_INFO struct {
 	AttriName uint32 //属性名(符号表中的地址)
 	Length    uint32 //长度
 }
+
+const ATTRI_INFO_SIZE = 8
 
 type CONST_PAIR struct {
 	StaticFiledIndex uint32 //static字段索引
 	ConstIndex       uint32 //常量索引
 }
 
-const CLASS_INFO_SIZE = 50
+type METHOD struct {
+	AccessFlag uint16 //可访问属性
+	MethodName uint32 //方法名
+	Descriptor uint32 //描述符
+	CodeAddr   uint32 //code地址
+	Attribute  uint32 //属性地址
+	AttriNum   uint32 //属性数量
+}
 
-const FILED_ITEM_SIZE = 6
+const METHOD_SIZE = 22
 
-const FILED_INFO_SIZE = 10
+type CODE_ATTRI struct {
+	MaxStack       uint32
+	MaxLocal       uint32
+	CodeLength     uint32
+	ExceptionCount uint32
+	AttriNum       uint32
+}
 
-const ATTRI_INFO_SIZE = 8
+const CODE_ATTRI_SIZE = 20
 
 var magicNum = []byte{0xCA, 0xFE, 0xBA, 0xBE}
 
@@ -203,7 +223,7 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 	count = 2
 	//结果
 	result := make([]byte, 0)
-
+	strs := make([]uint32, 0)
 	var i uint16
 	var constantBytes []byte
 	var consume uint32
@@ -239,6 +259,7 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 			constantBytes, consume = readConstantClassInfo(context[count:])
 		//String_info
 		case 0x08:
+			strs = append(strs, uint32(len(result)))
 			constantBytes, consume = readConstantStringInfo(context[count:])
 		//Fieldref_info
 		case 0x09:
@@ -257,6 +278,15 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 		}
 		count += consume
 		result = append(result, constantBytes...)
+	}
+	//将String常量的值换成字符串地址
+	for _, v := range strs {
+		str := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[v : v+4]))
+		strAdr, err := GetUtf8FromConstPool(result, str.param)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		str.param = strAdr
 	}
 	return context[count:], result, uint32(size), nil
 }
@@ -619,4 +649,100 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 		filedInfos = append(filedInfos, filed...)
 	}
 	return context, filedInfos, unstaticFileds, staticFileds, unstaticNum, staticNum, constPairs, nil
+}
+
+/******************************************************************
+    功能:读取Filed信息
+	入参:1、文件内容
+	    2、常量池
+    返回值:1、读取后的context
+          2、字段描述
+          3、非静态字段信息
+          4、静态字段信息
+          5、非静态字段大小
+          6、静态字段大小
+          7、常量对
+          8、error
+******************************************************************/
+func readMethods(context, constPool []byte) {
+	//方法数量
+	methodsNum := uint32(comFunc.BytesToUint16(context[0:2]))
+	context = context[2:]
+	methods := make([]byte, 0)
+	attris := make([]byte, 0)
+	var err error
+	for i := uint32(0); i < methodsNum; i++ {
+		methodInfo_mem := make([]byte, METHOD_SIZE)
+		methodInfo := (*METHOD)(comFunc.BytesToUnsafePointer(methodInfo_mem))
+		//方法可访问性
+		methodInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
+		//方法名
+		methodInfo.MethodName, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
+		if err != nil {
+			return
+		}
+		//方法描述符
+		methodInfo.Descriptor, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
+		if err != nil {
+			return
+		}
+		//属性数量
+		attriNum := uint32(comFunc.BytesToUint16(context[6:8]))
+		methodInfo.AttriNum = attriNum
+		//属性地址
+		methodInfo.Attribute = uint32(len(attris))
+		context = context[6:]
+		//Code符号表中的地址
+		codeSymbol, err := memCtrl.PutSymbol([]byte("Code"))
+		if err != nil {
+			return
+		}
+		for j := uint32(0); j < attriNum; j++ {
+			attri_mem := make([]byte, ATTRI_INFO_SIZE)
+			attri := (*ATTRI_INFO)(comFunc.BytesToUnsafePointer(attri_mem))
+			//属性名
+			attri.AttriName, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
+			if err != nil {
+				return
+			}
+			if attri.AttriName == codeSymbol {
+				//Code属性的处理
+				methodInfo.CodeAddr = uint32(len(attris))
+				//attriLength := uint32(comFunc.BytesToUint16(context[2:6]))
+				//to do,Code的解析
+			} else {
+				//非Code属性的处理
+				attri.Length = uint32(comFunc.BytesToUint16(context[2:6]))
+				attris = append(attris, attri_mem...)
+				attris = append(attris, context[6:uint32(6)+attri.Length]...)
+				context = context[uint32(6)+attri.Length:]
+			}
+		}
+		methods = append(methods, methodInfo_mem...)
+	}
+}
+
+/******************************************************************
+    功能:读取Filed信息
+	入参:1、文件内容
+	    2、常量池
+    返回值:1、读取后的context
+          2、字段描述
+          3、非静态字段信息
+          4、静态字段信息
+          5、非静态字段大小
+          6、静态字段大小
+          7、常量对
+          8、error
+******************************************************************/
+func readCode(context, constPool []byte) {
+	code_mem := make([]byte, CODE_ATTRI_SIZE)
+	code := (*CODE_ATTRI)(comFunc.BytesToUnsafePointer(code_mem))
+	code.MaxStack = uint32(comFunc.BytesToUint16(context[0:2]))
+	code.MaxLocal = uint32(comFunc.BytesToUint16(context[2:4]))
+	codeLength := uint32(comFunc.BytesToUint16(context[4:10]))
+	//codeOp := make([]byte, 0)
+	for i := uint32(0); i < codeLength; i++ {
+
+	}
 }
