@@ -3,6 +3,7 @@ package main
 
 import (
 	"../class"
+	"../classAnaly"
 	"../memoryControl"
 	"../startup"
 )
@@ -13,5 +14,4 @@ func main() {
 
 	memCtrl.Init(1024)
 
-	//fmt.Println(byte(0x20103004 >> 24))
 }

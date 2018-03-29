@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"../accessOp"
 	"../class"
 	"../comFunc"
 	"../memoryControl"
@@ -23,6 +24,7 @@ type CLASS_INFO struct {
 	ClassName             uint32 //类名
 	SuperClassAddr        uint32 //父类地址,为0代表是Object类
 	AccessFlag            uint16 //可访问属性
+	rsv                   [2]uint8
 	ConstNum              uint32 //常量数量
 	FiledInfoDev          uint32 //参数信息偏移
 	UnstaticParaDev       uint32 //非static参数地址
@@ -34,7 +36,7 @@ type CLASS_INFO struct {
 	InterfaceNum          uint32 //接口数量
 }
 
-const CLASS_INFO_SIZE = 46
+const CLASS_INFO_SIZE = 12 * 4
 
 type FILED_ITEM struct {
 	FiledName    uint32 //字段名(符号表索引)
@@ -46,11 +48,12 @@ const FILED_ITEM_SIZE = 6
 
 type FILED_INFO struct {
 	AccessFlag uint16 //可访问性
+	rsv        [2]uint8
 	Descriptor uint32 //描述符(符号表索引)
 	AttriCount uint32 //属性数量
 }
 
-const FILED_INFO_SIZE = 10
+const FILED_INFO_SIZE = 3 * 4
 
 type ATTRI_INFO struct {
 	AttriName uint32 //属性名(符号表中的地址)
@@ -66,6 +69,7 @@ type CONST_PAIR struct {
 
 type METHOD struct {
 	AccessFlag uint16 //可访问属性
+	rsv        [2]uint8
 	MethodName uint32 //方法名
 	Descriptor uint32 //描述符
 	CodeAddr   uint32 //code地址
@@ -73,7 +77,7 @@ type METHOD struct {
 	AttriNum   uint32 //属性数量
 }
 
-const METHOD_SIZE = 22
+const METHOD_SIZE = 6 * 4
 
 type CODE_ATTRI struct {
 	MaxStack       uint32
@@ -279,14 +283,17 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 		count += consume
 		result = append(result, constantBytes...)
 	}
-	//将String常量的值换成字符串地址
+	//将String常量的值换成字符串地址(字符串常量池中的地址)
 	for _, v := range strs {
 		str := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[v : v+4]))
 		strAdr, err := GetUtf8FromConstPool(result, str.param)
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		str.param = strAdr
+		str.param, err = access.PutString(access.BytesToUint16(memCtrl.GetSymbol(strAdr)))
+		if err != nil {
+			return nil, nil, 0, err
+		}
 	}
 	return context[count:], result, uint32(size), nil
 }

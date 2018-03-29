@@ -40,7 +40,7 @@ func Init(size uint32) {
 	symHeader.Next = INVALID_MEM
 
 	//初始化类表头结点
-	classHeaderAdr, _ = Malloc(CLASS_HEADER_SIZE, 0)
+	classHeaderAdr, _ = Malloc(CLASS_HEADER_SIZE, CLASS_NODE)
 	classHeader := (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[classHeaderAdr:]))
 	classHeader.ClassName = INVALID_MEM
 	classHeader.Next = INVALID_MEM
@@ -91,9 +91,14 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		addr = header.NextNode
 		header = (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE]))
 	}
+
+	newAddr := addr + header.Size
+	if newAddr%4 != 0 {
+		newAddr = (newAddr/4 + 1) * 4
+
+	}
 	/* 最后一个节点之后有没有足够的内存 */
-	if (memSize - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
-		newAddr := addr + header.Size
+	if (memSize - newAddr) >= (size + MEM_HEADER_SIZE) {
 		newNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[newAddr : newAddr+MEM_HEADER_SIZE]))
 		newNode.PreNode = addr
 		newNode.NextNode = INVALID_MEM
@@ -103,7 +108,6 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		for i := newAddr + MEM_HEADER_SIZE; i < newAddr+MEM_HEADER_SIZE+size; i++ {
 			Memory[i] = 0
 		}
-
 		header.NextNode = newAddr
 
 		return newAddr + MEM_HEADER_SIZE, nil
@@ -115,7 +119,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 /******************************************************************
     释放内存
 ******************************************************************/
-func MemFree(addr int) error {
+func MemFree(addr uint32) error {
 	if addr == 0 || addr == MEM_HEADER_SIZE {
 		return errors.New("MemFree():Can't Free HeaderNode!")
 	}

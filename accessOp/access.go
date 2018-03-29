@@ -27,8 +27,8 @@ var AccHeaderAdr uint32 = memCtrl.INVALID_MEM
 func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 	if AccHeaderAdr == memCtrl.INVALID_MEM {
 		//初始化类表头结点
-		AccHeaderAdr, _ = memCtrl.Malloc(ACCESS_INFO_SIZE, 0)
-		accHeader := (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[AccHeaderAdr:]))
+		AccHeaderAdr, _ = memCtrl.Malloc(ACCESS_INFO_SIZE, memCtrl.ACCESS_NODE)
+		accHeader := (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[AccHeaderAdr : AccHeaderAdr+ACCESS_INFO_SIZE]))
 		accHeader.DataAddr = memCtrl.INVALID_MEM
 		accHeader.NextAddr = memCtrl.INVALID_MEM
 		accHeader.TypeAddr = memCtrl.INVALID_MEM
@@ -39,12 +39,12 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 	curAddr := AccHeaderAdr
 	var curAccess *ACCESS_INFO
 	for curAddr != memCtrl.INVALID_MEM {
-		curAccess = (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[curAddr:]))
+		curAccess = (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[curAddr : curAddr+ACCESS_INFO_SIZE]))
 
 		curAddr = curAccess.NextAddr
 	}
 
-	newAccAdr, err := memCtrl.Malloc(uint32(ACCESS_INFO_SIZE), memCtrl.ACCESS_NODE)
+	newAccAdr, err := memCtrl.Malloc(ACCESS_INFO_SIZE, memCtrl.ACCESS_NODE)
 	if err != nil {
 		return nil, memCtrl.INVALID_MEM, errors.New("NewAccessInfo():内存不足")
 	}
@@ -53,4 +53,14 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 	newAcc.NextAddr = memCtrl.INVALID_MEM
 
 	return newAcc, newAccAdr, nil
+}
+
+/******************************************************************
+    功能:获取Access的数据
+	入参:access地址
+    返回值:1、数据切片
+******************************************************************/
+func GetData(accAdr uint32) []byte {
+	acc := (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[accAdr : accAdr+ACCESS_INFO_SIZE]))
+	return memCtrl.Memory[acc.DataAddr:]
 }

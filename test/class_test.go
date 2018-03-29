@@ -110,7 +110,7 @@ func Test_ReadClass_Case1(t *testing.T) {
 *********************************************************/
 func Test_AnalyClass_Case1(t *testing.T) {
 	class.InitClassPath("")
-	memCtrl.Init(2048)
+	memCtrl.Init(25535)
 
 	_, err := classAnaly.LoadClass("java.lang.Object")
 
