@@ -87,7 +87,7 @@ func PutString(s []uint16) (uint32, error) {
 		}
 	}
 
-	constantPool := *(*[]HASH_ITEM)(comFunc.BytesToArray(memCtrl.Memory[StringPoolAdr:StringPoolAdr+StringPoolCap*HASH_ITEM_SIZE], HASH_ITEM_SIZE))
+	constantPool := *(*[]HASH_ITEM)(memCtrl.GetArrayPointer(StringPoolAdr, StringPoolCap*HASH_ITEM_SIZE, HASH_ITEM_SIZE))
 
 	//计算字符串Hash值
 	hash := HashCode(s)
@@ -150,14 +150,14 @@ func ExtendConstantPool() error {
 		return nil
 	}
 	oldStringPoolAdr := StringPoolAdr
-	oldConstantPool := *(*[]HASH_ITEM)(comFunc.BytesToArray(memCtrl.Memory[StringPoolAdr:StringPoolAdr+StringPoolCap*HASH_ITEM_SIZE], HASH_ITEM_SIZE))
+	oldConstantPool := *(*[]HASH_ITEM)(memCtrl.GetArrayPointer(StringPoolAdr, StringPoolCap*HASH_ITEM_SIZE, HASH_ITEM_SIZE))
 
 	StringPoolCap *= 2
 	StringPoolAdr, err = memCtrl.Malloc(StringPoolCap*HASH_ITEM_SIZE, memCtrl.CONSTANT_POOL_NODE)
 	if err != nil {
 		return err
 	}
-	ConstantPool := *(*[]HASH_ITEM)(comFunc.BytesToArray(memCtrl.Memory[StringPoolAdr:StringPoolAdr+StringPoolCap*HASH_ITEM_SIZE], HASH_ITEM_SIZE))
+	ConstantPool := *(*[]HASH_ITEM)(memCtrl.GetArrayPointer(StringPoolAdr, StringPoolCap*HASH_ITEM_SIZE, HASH_ITEM_SIZE))
 	for _, v := range oldConstantPool {
 		index := v.HashCode % StringPoolCap
 		for {

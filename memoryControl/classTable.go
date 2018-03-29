@@ -2,8 +2,6 @@ package memCtrl
 
 import (
 	"errors"
-
-	"../comFunc"
 )
 
 /***********************************
@@ -13,7 +11,7 @@ func PutClass(className uint32, context []byte) (uint32, error) {
 	curAddr := classHeaderAdr
 	var curClass *ClassItem
 	for curAddr != INVALID_MEM {
-		curClass = (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[curAddr:]))
+		curClass = (*ClassItem)(GetPointer(curAddr, CLASS_HEADER_SIZE))
 		curAddr = curClass.Next
 	}
 	newClassAdr, err := Malloc(uint32(CLASS_HEADER_SIZE+len(context)), CLASS_NODE)
@@ -21,7 +19,7 @@ func PutClass(className uint32, context []byte) (uint32, error) {
 		return INVALID_MEM, errors.New("PutClassMemAddr():内存不足")
 	}
 	curClass.Next = newClassAdr
-	newClass := (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[newClassAdr:]))
+	newClass := (*ClassItem)(GetPointer(newClassAdr, CLASS_HEADER_SIZE))
 	newClass.ClassName = className
 	newClass.Next = INVALID_MEM
 	copy(Memory[newClassAdr+CLASS_HEADER_SIZE:newClassAdr+SYMBOL_HEADER_SIZE+uint32(len(context))], context)
@@ -35,7 +33,7 @@ func GetClassMemAddr(className uint32) uint32 {
 	curAddr := classHeaderAdr
 	var curClass *ClassItem
 	for curAddr != INVALID_MEM {
-		curClass = (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[curAddr:]))
+		curClass = (*ClassItem)(GetPointer(curAddr, CLASS_HEADER_SIZE))
 		if curClass.ClassName == className {
 			return curAddr
 		}

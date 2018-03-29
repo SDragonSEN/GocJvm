@@ -3,8 +3,6 @@ package memCtrl
 import (
 	"bytes"
 	"errors"
-
-	"../comFunc"
 )
 
 /***********************************
@@ -14,7 +12,7 @@ func PutSymbol(symbol []byte) (uint32, error) {
 	curAddr := symHeaderAdr
 	var curSymbol *SymbolItem
 	for curAddr != INVALID_MEM {
-		curSymbol = (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[curAddr:]))
+		curSymbol = (*SymbolItem)(GetPointer(curAddr, SYMBOL_HEADER_SIZE))
 		if curSymbol.Length == uint32(len(symbol)) && 0 == bytes.Compare(Memory[curAddr+SYMBOL_HEADER_SIZE:curAddr+SYMBOL_HEADER_SIZE+curSymbol.Length], symbol) {
 			return curAddr, nil
 		}
@@ -26,7 +24,7 @@ func PutSymbol(symbol []byte) (uint32, error) {
 		return INVALID_MEM, errors.New("PutSymbol():内存不足")
 	}
 	curSymbol.Next = newSymAdr
-	newSym := (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[newSymAdr:]))
+	newSym := (*SymbolItem)(GetPointer(newSymAdr, SYMBOL_HEADER_SIZE))
 	newSym.Length = uint32(len(symbol))
 	newSym.Next = INVALID_MEM
 	copy(Memory[newSymAdr+SYMBOL_HEADER_SIZE:newSymAdr+SYMBOL_HEADER_SIZE+newSym.Length], symbol)
@@ -37,6 +35,6 @@ func PutSymbol(symbol []byte) (uint32, error) {
  获取符号
 ************************************/
 func GetSymbol(adr uint32) []byte {
-	symbol := (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[adr:]))
+	symbol := (*SymbolItem)(GetPointer(adr, SYMBOL_HEADER_SIZE))
 	return Memory[adr+SYMBOL_HEADER_SIZE : adr+SYMBOL_HEADER_SIZE+symbol.Length]
 }

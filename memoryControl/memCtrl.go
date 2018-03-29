@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"unsafe"
 
 	"../comFunc"
 )
@@ -51,7 +52,7 @@ func Init(size uint32) {
     获取HeaderNode
 ******************************************************************/
 func getHeader() (*NodeHeader, uint32) {
-	return (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[0:MEM_HEADER_SIZE])), 0
+	return (*NodeHeader)(GetPointer(0, MEM_HEADER_SIZE)), 0
 }
 
 /******************************************************************
@@ -68,7 +69,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		if (header.NextNode - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
 			/* 分配新的节点,并初始化Header信息 */
 			newAddr := addr + header.Size
-			newNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[newAddr : newAddr+MEM_HEADER_SIZE]))
+			newNode := (*NodeHeader)(GetPointer(newAddr, MEM_HEADER_SIZE))
 			newNode.PreNode = addr
 			newNode.NextNode = header.NextNode
 			newNode.Size = size + MEM_HEADER_SIZE
@@ -79,7 +80,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 				Memory[i] = 0
 			}
 			/* 修改下一个节点前指针 */
-			nextNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE]))
+			nextNode := (*NodeHeader)(GetPointer(header.NextNode, MEM_HEADER_SIZE))
 			nextNode.PreNode = newAddr
 
 			/* 修改上一个节点后指针 */
@@ -89,7 +90,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		}
 		/* 指向下一个节点 */
 		addr = header.NextNode
-		header = (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[header.NextNode : header.NextNode+MEM_HEADER_SIZE]))
+		header = (*NodeHeader)(GetPointer(header.NextNode, MEM_HEADER_SIZE))
 	}
 
 	newAddr := addr + header.Size
@@ -99,7 +100,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 	}
 	/* 最后一个节点之后有没有足够的内存 */
 	if (memSize - newAddr) >= (size + MEM_HEADER_SIZE) {
-		newNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[newAddr : newAddr+MEM_HEADER_SIZE]))
+		newNode := (*NodeHeader)(GetPointer(newAddr, MEM_HEADER_SIZE))
 		newNode.PreNode = addr
 		newNode.NextNode = INVALID_MEM
 		newNode.Size = size + MEM_HEADER_SIZE
@@ -123,16 +124,16 @@ func MemFree(addr uint32) error {
 	if addr == 0 || addr == MEM_HEADER_SIZE {
 		return errors.New("MemFree():Can't Free HeaderNode!")
 	}
-	deleteNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[addr-MEM_HEADER_SIZE : addr]))
+	deleteNode := (*NodeHeader)(GetPointer(addr-MEM_HEADER_SIZE, MEM_HEADER_SIZE))
 
 	/* 修改下一个节点前指针 */
 	if deleteNode.NextNode != INVALID_MEM {
-		nextNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[deleteNode.NextNode : deleteNode.NextNode+MEM_HEADER_SIZE]))
+		nextNode := (*NodeHeader)(GetPointer(deleteNode.NextNode, MEM_HEADER_SIZE))
 		nextNode.PreNode = deleteNode.PreNode
 
 	}
 	/* 修改上一个节点后指针 */
-	preNode := (*NodeHeader)(comFunc.BytesToUnsafePointer(Memory[deleteNode.PreNode : deleteNode.PreNode+MEM_HEADER_SIZE]))
+	preNode := (*NodeHeader)(GetPointer(deleteNode.PreNode, MEM_HEADER_SIZE))
 	preNode.NextNode = deleteNode.NextNode
 
 	return nil
@@ -143,6 +144,20 @@ func MemFree(addr uint32) error {
 ******************************************************************/
 func ReAlloc(size int) (int, error) {
 	return 0, nil
+}
+
+/******************************************************************
+    获取内存空间指针
+******************************************************************/
+func GetPointer(start, length uint32) unsafe.Pointer {
+	return comFunc.BytesToUnsafePointer(Memory[start : start+length])
+}
+
+/******************************************************************
+    获取内存空间Array指针
+******************************************************************/
+func GetArrayPointer(start, length uint32, width int) unsafe.Pointer {
+	return comFunc.BytesToArray(Memory[start:start+length], width)
 }
 
 /******************************************************************

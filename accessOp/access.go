@@ -3,7 +3,6 @@ package access
 import (
 	"errors"
 
-	"../comFunc"
 	"../memoryControl"
 )
 
@@ -28,7 +27,7 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 	if AccHeaderAdr == memCtrl.INVALID_MEM {
 		//初始化类表头结点
 		AccHeaderAdr, _ = memCtrl.Malloc(ACCESS_INFO_SIZE, memCtrl.ACCESS_NODE)
-		accHeader := (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[AccHeaderAdr : AccHeaderAdr+ACCESS_INFO_SIZE]))
+		accHeader := (*ACCESS_INFO)(memCtrl.GetPointer(AccHeaderAdr, ACCESS_INFO_SIZE))
 		accHeader.DataAddr = memCtrl.INVALID_MEM
 		accHeader.NextAddr = memCtrl.INVALID_MEM
 		accHeader.TypeAddr = memCtrl.INVALID_MEM
@@ -39,7 +38,7 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 	curAddr := AccHeaderAdr
 	var curAccess *ACCESS_INFO
 	for curAddr != memCtrl.INVALID_MEM {
-		curAccess = (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[curAddr : curAddr+ACCESS_INFO_SIZE]))
+		curAccess = (*ACCESS_INFO)(memCtrl.GetPointer(curAddr, ACCESS_INFO_SIZE))
 
 		curAddr = curAccess.NextAddr
 	}
@@ -49,7 +48,7 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 		return nil, memCtrl.INVALID_MEM, errors.New("NewAccessInfo():内存不足")
 	}
 	curAccess.NextAddr = newAccAdr
-	newAcc := (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[newAccAdr:]))
+	newAcc := (*ACCESS_INFO)(memCtrl.GetPointer(newAccAdr, ACCESS_INFO_SIZE))
 	newAcc.NextAddr = memCtrl.INVALID_MEM
 
 	return newAcc, newAccAdr, nil
@@ -61,6 +60,6 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
     返回值:1、数据切片
 ******************************************************************/
 func GetData(accAdr uint32) []byte {
-	acc := (*ACCESS_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[accAdr : accAdr+ACCESS_INFO_SIZE]))
+	acc := (*ACCESS_INFO)(memCtrl.GetPointer(accAdr, ACCESS_INFO_SIZE))
 	return memCtrl.Memory[acc.DataAddr:]
 }

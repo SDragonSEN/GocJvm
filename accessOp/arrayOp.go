@@ -31,7 +31,7 @@ func NewArray(symbol []byte, width uint32, length uint32) (*ACCESS_INFO, uint32,
 		return nil, memCtrl.INVALID_MEM, err
 	}
 	//分配数组数据的内存
-	leng := uint32(ARRAY_INFO_SIZE) + uint32(width)*length
+	leng := ARRAY_INFO_SIZE + width*length
 	arrAdr, err := memCtrl.Malloc(leng, memCtrl.ARRAY_NODE)
 	if err != nil {
 		return nil, memCtrl.INVALID_MEM, err
@@ -39,7 +39,7 @@ func NewArray(symbol []byte, width uint32, length uint32) (*ACCESS_INFO, uint32,
 	access.DataAddr = arrAdr
 	access.TypeAddr = ArrayClassAdr
 	//数组描述符,字宽,长度赋值
-	array := (*ARRAY_INFO)(comFunc.BytesToUnsafePointer(memCtrl.Memory[arrAdr : arrAdr+leng]))
+	array := (*ARRAY_INFO)(memCtrl.GetPointer(arrAdr, ARRAY_INFO_SIZE))
 	array.ArrayType, err = memCtrl.PutSymbol(symbol)
 	if err != nil {
 		return nil, memCtrl.INVALID_MEM, err
@@ -48,7 +48,7 @@ func NewArray(symbol []byte, width uint32, length uint32) (*ACCESS_INFO, uint32,
 	array.Length = length
 
 	//数组数据刷成0
-	for i := arrAdr + ARRAY_INFO_SIZE; i < arrAdr+ARRAY_INFO_SIZE+uint32(width)*length; i++ {
+	for i := arrAdr + ARRAY_INFO_SIZE; i < arrAdr+ARRAY_INFO_SIZE+width*length; i++ {
 		memCtrl.Memory[i] = 0
 	}
 	return access, accAdr, nil
