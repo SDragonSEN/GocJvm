@@ -8,6 +8,7 @@ import (
 	"../accessOp"
 	"../class"
 	"../comFunc"
+	"../comValue"
 	"../memoryControl"
 )
 
@@ -742,14 +743,398 @@ func readMethods(context, constPool []byte) {
           7、常量对
           8、error
 ******************************************************************/
-func readCode(context, constPool []byte) {
+func readCode(context []byte) {
 	code_mem := make([]byte, CODE_ATTRI_SIZE)
 	code := (*CODE_ATTRI)(comFunc.BytesToUnsafePointer(code_mem))
 	code.MaxStack = uint32(comFunc.BytesToUint16(context[0:2]))
 	code.MaxLocal = uint32(comFunc.BytesToUint16(context[2:4]))
-	codeLength := uint32(comFunc.BytesToUint16(context[4:10]))
-	//codeOp := make([]byte, 0)
-	for i := uint32(0); i < codeLength; i++ {
+	code.CodeLength = uint32(comFunc.BytesToUint16(context[4:8]))
+	context = context[8:]
+	codeOp := make([]byte, 0, code.CodeLength)
+	for i := uint32(0); i < code.CodeLength; i++ {
+		op := context[i]
+		codeOp = append(codeOp, op)
+		i++
+		switch op {
+		case comValue.NOP:
+		case comValue.ACONST_NULL:
+		case comValue.ICONST_M1:
+		case comValue.ICONST_0:
+		case comValue.ICONST_1:
+		case comValue.ICONST_2:
+		case comValue.ICONST_3:
+		case comValue.ICONST_4:
+		case comValue.ICONST_5:
+		case comValue.LCONST_0:
+		case comValue.LCONST_1:
+		case comValue.FCONST_0:
+		case comValue.FCONST_1:
+		case comValue.FCONST_2:
+		case comValue.DCONST_0:
+		case comValue.DCONST_1:
+		case comValue.ILOAD_0:
+		case comValue.ILOAD_1:
+		case comValue.ILOAD_2:
+		case comValue.ILOAD_3:
+		case comValue.LLOAD_0:
+		case comValue.LLOAD_1:
+		case comValue.LLOAD_2:
+		case comValue.LLOAD_3:
+		case comValue.FLOAD_0:
+		case comValue.FLOAD_1:
+		case comValue.FLOAD_2:
+		case comValue.FLOAD_3:
+		case comValue.DLOAD_0:
+		case comValue.DLOAD_1:
+		case comValue.DLOAD_2:
+		case comValue.DLOAD_3:
+		case comValue.ALOAD_0:
+		case comValue.ALOAD_1:
+		case comValue.ALOAD_2:
+		case comValue.ALOAD_3:
+		case comValue.IALOAD:
+		case comValue.LALOAD:
+		case comValue.FALOAD:
+		case comValue.DALOAD:
+		case comValue.AALOAD:
+		case comValue.BALOAD:
+		case comValue.CALOAD:
+		case comValue.SALOAD:
+		case comValue.ISTORE_0:
+		case comValue.ISTORE_1:
+		case comValue.ISTORE_2:
+		case comValue.ISTORE_3:
+		case comValue.LSTORE_0:
+		case comValue.LSTORE_1:
+		case comValue.LSTORE_2:
+		case comValue.LSTORE_3:
+		case comValue.FSTORE_0:
+		case comValue.FSTORE_1:
+		case comValue.FSTORE_2:
+		case comValue.FSTORE_3:
+		case comValue.DSTORE_0:
+		case comValue.DSTORE_1:
+		case comValue.DSTORE_2:
+		case comValue.DSTORE_3:
+		case comValue.ASTORE_0:
+		case comValue.ASTORE_1:
+		case comValue.ASTORE_2:
+		case comValue.ASTORE_3:
+		case comValue.IASTORE:
+		case comValue.LASTORE:
+		case comValue.FASTORE:
+		case comValue.DASTORE:
+		case comValue.AASTORE:
+		case comValue.BASTORE:
+		case comValue.CASTORE:
+		case comValue.SASTORE:
+		case comValue.POP:
+		case comValue.POP2:
+		case comValue.DUP:
+		case comValue.DUP_X1:
+		case comValue.DUP_X2:
+		case comValue.DUP2:
+		case comValue.DUP2_X1:
+		case comValue.DUP2_X2:
+		case comValue.SWAP:
+		case comValue.IADD:
+		case comValue.LADD:
+		case comValue.FADD:
+		case comValue.DADD:
+		case comValue.ISUB:
+		case comValue.LSUB:
+		case comValue.FSUB:
+		case comValue.DSUB:
+		case comValue.IMUL:
+		case comValue.LMUL:
+		case comValue.FMUL:
+		case comValue.DMUL:
+		case comValue.IDIV:
+		case comValue.LDIV:
+		case comValue.FDIV:
+		case comValue.DDIV:
+		case comValue.IREM:
+		case comValue.LREM:
+		case comValue.FREM:
+		case comValue.DREM:
+		case comValue.INEG:
+		case comValue.LENG:
+		case comValue.FNEG:
+		case comValue.DNEG:
+		case comValue.ISHL:
+		case comValue.LSHL:
+		case comValue.ISHR:
+		case comValue.LSHR:
+		case comValue.IUSHR:
+		case comValue.LUSHR:
+		case comValue.IAND:
+		case comValue.LAND:
+		case comValue.IOR:
+		case comValue.LOR:
+		case comValue.IXOR:
+		case comValue.LXOR:
+		case comValue.I2L:
+		case comValue.I2F:
+		case comValue.I2D:
+		case comValue.L2I:
+		case comValue.L2F:
+		case comValue.L2D:
+		case comValue.F2I:
+		case comValue.F2L:
+		case comValue.F2D:
+		case comValue.D2I:
+		case comValue.D2L:
+		case comValue.D2F:
+		case comValue.I2B:
+		case comValue.I2C:
+		case comValue.I2S:
+		case comValue.LCMP:
+		case comValue.FCMPL:
+		case comValue.FCMPG:
+		case comValue.DCMPL:
+		case comValue.DCMPG:
+		case comValue.IRETURN:
+		case comValue.LRETURN:
+		case comValue.FRETURN:
+		case comValue.DRETURN:
+		case comValue.ARETURN:
+		case comValue.RETURN:
+		case comValue.ARRAYLENGTH:
+		case comValue.ATHROW:
+		case comValue.MONITORENTER:
+		case comValue.MONITOREXIT:
+			//无操作数
+		case comValue.BIPUSH:
+			fallthrough
+		case comValue.LDC:
+			fallthrough
+		case comValue.ILOAD:
+			fallthrough
+		case comValue.LLOAD:
+			fallthrough
+		case comValue.FLOAD:
+			fallthrough
+		case comValue.DLOAD:
+			fallthrough
+		case comValue.ALOAD:
+			fallthrough
+		case comValue.ISTORE:
+			fallthrough
+		case comValue.LSTORE:
+			fallthrough
+		case comValue.FSTORE:
+			fallthrough
+		case comValue.DSTORE:
+			fallthrough
+		case comValue.ASTORE:
+			fallthrough
+		case comValue.NEWARRAY:
+			codeOp = append(codeOp, context[i])
+			i++
 
+		case comValue.SIPUSH:
+			b := [2]byte{}
+			s := (*int16)(comFunc.BytesToUnsafePointer(b[:]))
+			*s = comFunc.BytesToInt16(context[i : i+2])
+			codeOp = append(codeOp, b[:]...)
+			i += 2
+
+		case comValue.LDC_W:
+			fallthrough
+		case comValue.LDC2_W:
+			fallthrough
+		case comValue.IFEQ:
+			fallthrough
+		case comValue.IFNE:
+			fallthrough
+		case comValue.IFLT:
+			fallthrough
+		case comValue.IFGE:
+			fallthrough
+		case comValue.IFLE:
+			fallthrough
+		case comValue.IF_ICMPEQ:
+			fallthrough
+		case comValue.IF_ICMPNE:
+			fallthrough
+		case comValue.IF_ICMPLT:
+			fallthrough
+		case comValue.IF_ICMPGE:
+			fallthrough
+		case comValue.IF_ICMPGT:
+			fallthrough
+		case comValue.IF_ICMPLE:
+			fallthrough
+		case comValue.IF_ACMPEQ:
+			fallthrough
+		case comValue.IF_ACMPNE:
+			fallthrough
+		case comValue.GOTO:
+			fallthrough
+		case comValue.GETSTATIC:
+			fallthrough
+		case comValue.PUTSTATIC:
+			fallthrough
+		case comValue.GETFIELD:
+			fallthrough
+		case comValue.PUTFIELD:
+			fallthrough
+		case comValue.INVOKEVIRTUAL:
+			fallthrough
+		case comValue.INVOKESPECIAL:
+			fallthrough
+		case comValue.INVOKESTATIC:
+			fallthrough
+		case comValue.INVOKEINTERFACE:
+			fallthrough
+		case comValue.NEW:
+			fallthrough
+		case comValue.ANEWARRAY:
+			fallthrough
+		case comValue.CHECKCAST:
+			fallthrough
+		case comValue.INSTANCEOF:
+			fallthrough
+		case comValue.IFNULL:
+			fallthrough
+		case comValue.IFNONNULL:
+			b := [2]byte{}
+			s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
+			*s = comFunc.BytesToUint16(context[i : i+2])
+			codeOp = append(codeOp, b[:]...)
+			i += 2
+
+		case comValue.IINC:
+			codeOp = append(codeOp, context[i], context[i+1])
+			i += 2
+
+		case comValue.TABLESWITCH:
+			//3个填充位
+			codeOp = append(codeOp, context[i:i+3]...)
+			i += 3
+			//default
+			def := [4]byte{}
+			s := (*uint32)(comFunc.BytesToUnsafePointer(def[:]))
+			*s = comFunc.BytesToUint32(context[i : i+4])
+			codeOp = append(codeOp, def[:]...)
+			i += 4
+			//low
+			low_b := [4]byte{}
+			low := (*uint32)(comFunc.BytesToUnsafePointer(low_b[:]))
+			*low = comFunc.BytesToUint32(context[i : i+4])
+			codeOp = append(codeOp, low_b[:]...)
+			i += 4
+			//high
+			high_b := [4]byte{}
+			high := (*uint32)(comFunc.BytesToUnsafePointer(high_b[:]))
+			*high = comFunc.BytesToUint32(context[i : i+4])
+			codeOp = append(codeOp, high_b[:]...)
+			i += 4
+			//offset
+			for j := *low; j <= *high; j++ {
+				offset_b := [4]byte{}
+				offset := (*uint32)(comFunc.BytesToUnsafePointer(offset_b[:]))
+				*offset = comFunc.BytesToUint32(context[i : i+4])
+				codeOp = append(codeOp, offset_b[:]...)
+				i += 4
+			}
+
+		case comValue.LOOKUPSWITCH:
+			//3个填充位
+			codeOp = append(codeOp, context[i:i+3]...)
+			i += 3
+			//default
+			def := [4]byte{}
+			s := (*uint32)(comFunc.BytesToUnsafePointer(def[:]))
+			*s = comFunc.BytesToUint32(context[i : i+4])
+			codeOp = append(codeOp, def[:]...)
+			i += 4
+			//pair的数量
+			pairs_b := [4]byte{}
+			pairs := (*uint32)(comFunc.BytesToUnsafePointer(pairs_b[:]))
+			*pairs = comFunc.BytesToUint32(context[i : i+4])
+			codeOp = append(codeOp, pairs_b[:]...)
+			i += 4
+			//各pair
+			for j := uint32(0); j <= (*pairs)*2; j++ {
+				pair_b := [4]byte{}
+				pair := (*uint32)(comFunc.BytesToUnsafePointer(pair_b[:]))
+				*pair = comFunc.BytesToUint32(context[i : i+4])
+				codeOp = append(codeOp, pair_b[:]...)
+				i += 4
+			}
+		case comValue.WIDE:
+			op := context[i]
+			codeOp = append(codeOp, op)
+			i++
+			switch op {
+			case comValue.ILOAD:
+				fallthrough
+			case comValue.LLOAD:
+				fallthrough
+			case comValue.FLOAD:
+				fallthrough
+			case comValue.DLOAD:
+				fallthrough
+			case comValue.ALOAD:
+				fallthrough
+			case comValue.ISTORE:
+				fallthrough
+			case comValue.LSTORE:
+				fallthrough
+			case comValue.FSTORE:
+				fallthrough
+			case comValue.DSTORE:
+				fallthrough
+			case comValue.ASTORE:
+				b := [2]byte{}
+				s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
+				*s = comFunc.BytesToUint16(context[i : i+2])
+				codeOp = append(codeOp, b[:]...)
+				i += 2
+			case comValue.IINC:
+				b := [2]byte{}
+				s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
+				*s = comFunc.BytesToUint16(context[i : i+2])
+				codeOp = append(codeOp, b[:]...)
+				codeOp = append(codeOp, context[i+2])
+				i += 3
+			case comValue.RET:
+				fmt.Println(op)
+				panic("readCode():该指令不支持（wide)")
+			default:
+				fmt.Println(op)
+				panic("readCode():该指令不支持wide")
+			}
+
+		case comValue.MULTIANEWARRAY:
+			b := [2]byte{}
+			s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
+			*s = comFunc.BytesToUint16(context[i : i+2])
+			codeOp = append(codeOp, b[:]...)
+			codeOp = append(codeOp, context[i+2])
+			i += 3
+
+		case comValue.GOTO_W:
+			b := [4]byte{}
+			s := (*uint32)(comFunc.BytesToUnsafePointer(b[:]))
+			*s = comFunc.BytesToUint32(context[i : i+4])
+			codeOp = append(codeOp, b[:]...)
+			i += 4
+
+		case comValue.JSR:
+			fallthrough
+		case comValue.RET:
+			fallthrough
+		case comValue.JSR_W:
+			fmt.Println(op)
+			panic("readCode():该指令不支持")
+		default:
+			fmt.Println(op)
+			panic("readCode():该指令不存在")
+		}
 	}
+
+	//异常处理表，code属性()
+	//return append(code_mem, codeOp...)
 }
