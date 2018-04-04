@@ -33,6 +33,7 @@ type CLASS_INFO struct {
 	UnstaticParaTotalSize uint32 //非static参数内存总大小(即，分配实例的大小)
 	StaticParaDev         uint32 //static参数地址
 	StaticParaSize        uint32 //static参数大小
+	StaticMem             uint32 //类实例地址
 	InterfaceDev          uint32 //接口定义偏移
 	InterfaceNum          uint32 //接口数量
 	MethodDev             uint32 //方法定义偏移
@@ -68,6 +69,7 @@ const ATTRI_INFO_SIZE = 8
 type CONST_PAIR struct {
 	StaticFiledIndex uint32 //static字段索引
 	ConstIndex       uint32 //常量索引
+	IsLongOrDouble   bool
 }
 
 type METHOD struct {
@@ -174,10 +176,28 @@ func LoadClass(className string) (uint32, error) {
 	classInfo.UnstaticParaSize = unstaticSize * 4
 	result = append(result, unstatic...)
 
-	//to do,字段总大小计算
-	//to do,静态常量初始化
-	fmt.Println(constPair)
-
+	//静态常量初始化
+	if len(constPair) != 0 {
+		clazInstAdr, err := memCtrl.Malloc(classInfo.StaticParaSize, memCtrl.CLASS_INSTANCE_NODE)
+		classInfo.StaticMem = clazInstAdr
+		if err != nil {
+			return memCtrl.INVALID_MEM, err
+		}
+		for _, pair := range constPair {
+			v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4, 4))
+			*v, err = GetInt32FromConstPool(constPool, pair.ConstIndex)
+			if err != nil {
+				return memCtrl.INVALID_MEM, err
+			}
+			if pair.IsLongOrDouble {
+				v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4+4, 4))
+				*v, err = GetInt32FromConstPool(constPool, pair.ConstIndex)
+				if err != nil {
+					return memCtrl.INVALID_MEM, err
+				}
+			}
+		}
+	}
 	//读取Method
 	context, methods, attris, methodNum, err := readMethods(context, constPool)
 	if err != nil {
@@ -196,12 +216,17 @@ func LoadClass(className string) (uint32, error) {
 	result = append(result, methods...)
 	result = append(result, attris...)
 
+	//属性暂不解析
+	result = append(result, context...)
+
 	//保存到内存中
 	memAdr, err := memCtrl.PutClass(classInfo.ClassName, result)
+
 	if err != nil {
 		return memCtrl.INVALID_MEM, err
 	}
 
+	//to do,执行static代码块
 	return memAdr, nil
 }
 
@@ -591,6 +616,18 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 	//常量对
 	constPairs := make([]CONST_PAIR, 0)
 
+	constSymbol, err := memCtrl.PutSymbol([]byte("ConstantValue"))
+	if err != nil {
+		return nil, nil, nil, nil, 0, 0, nil, err
+	}
+	longSymbol, err := memCtrl.PutSymbol([]byte("J"))
+	if err != nil {
+		return nil, nil, nil, nil, 0, 0, nil, err
+	}
+	doubleSymbol, err := memCtrl.PutSymbol([]byte("D"))
+	if err != nil {
+		return nil, nil, nil, nil, 0, 0, nil, err
+	}
 	for i := uint32(0); i < filedNum; i++ {
 		filed := make([]byte, FILED_INFO_SIZE)
 		filedInfo := (*FILED_INFO)(comFunc.BytesToUnsafePointer(filed))
@@ -620,17 +657,20 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 			}
 			//属性长度
 			attri.Length = comFunc.BytesToUint32(context[2:6])
+
 			//判断是否是常量属性
-			constSymbol, err := memCtrl.PutSymbol([]byte("ConstantValue"))
-			if err != nil {
-				return nil, nil, nil, nil, 0, 0, nil, err
-			}
 			//静态常量的处理
 			if attri.AttriName == constSymbol &&
 				(filedInfo.AccessFlag&FILED_ACC_STATIC == FILED_ACC_STATIC) &&
 				(filedInfo.AccessFlag&FILED_ACC_FINAL == FILED_ACC_FINAL) {
 				constValue := uint32(comFunc.BytesToUint16(context[6:8]))
-				constPairs = append(constPairs, CONST_PAIR{staticNum, constValue})
+
+				if longSymbol == filedName ||
+					doubleSymbol == filedName {
+					constPairs = append(constPairs, CONST_PAIR{staticNum, constValue, true})
+				} else {
+					constPairs = append(constPairs, CONST_PAIR{staticNum, constValue, false})
+				}
 			}
 			filed = append(filed, attriMem...)
 			//属性内容暂不解析
@@ -646,15 +686,6 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 		filedItem.FiledName = filedName
 
 		//判断是否是long或double
-		longSymbol, err := memCtrl.PutSymbol([]byte("J"))
-		if err != nil {
-			return nil, nil, nil, nil, 0, 0, nil, err
-		}
-		doubleSymbol, err := memCtrl.PutSymbol([]byte("D"))
-		if err != nil {
-			return nil, nil, nil, nil, 0, 0, nil, err
-		}
-
 		if filedInfo.AccessFlag&FILED_ACC_STATIC == FILED_ACC_STATIC {
 			//静态字段的处理
 			filedItem.Index = staticNum

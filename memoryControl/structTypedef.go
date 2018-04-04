@@ -30,12 +30,13 @@ const CLASS_HEADER_SIZE = 8 //next指针(4) + 类名(4)
 const INVALID_MEM = 0xFFFFFFFF //无效内存值
 
 const (
-	HEADER_NODE        = iota //头节点
-	SYMBOL_NODE               //符号表节点
-	CLASS_NODE                //类表节点
-	ACCESS_NODE               //引用类型节点
-	ARRAY_NODE                //数组节点
-	DATA_NODE                 //数据节点
-	CONSTANT_POOL_NODE        //常量池hash空间
-	INSTANCE_NODE             //实例节点
+	HEADER_NODE         = iota //头节点
+	SYMBOL_NODE                //符号表节点
+	CLASS_NODE                 //类表节点
+	ACCESS_NODE                //引用类型节点
+	ARRAY_NODE                 //数组节点
+	DATA_NODE                  //数据节点
+	CONSTANT_POOL_NODE         //常量池hash空间
+	INSTANCE_NODE              //实例节点
+	CLASS_INSTANCE_NODE        //类实例节点
 )

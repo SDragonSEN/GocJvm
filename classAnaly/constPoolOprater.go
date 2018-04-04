@@ -19,7 +19,7 @@ func GetClassFromConstPool(constPool []byte, index uint32) (uint32, error) {
 	if index == 0 {
 		return memCtrl.INVALID_MEM, errors.New("GetClassFromConstPool():索引为0!")
 	}
-	if index > uint32(len(constPool)) {
+	if index > uint32(len(constPool)/4) {
 		return memCtrl.INVALID_MEM, errors.New("GetClassFromConstPool():索引越界!")
 	}
 	constItem := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
@@ -38,7 +38,26 @@ func GetUtf8FromConstPool(constPool []byte, index uint32) (uint32, error) {
 	if index == 0 {
 		return memCtrl.INVALID_MEM, errors.New("GetUtf8FromConstPool():索引为0!")
 	}
-	if index > uint32(len(constPool)) {
+	if index > uint32(len(constPool)/4) {
+		return memCtrl.INVALID_MEM, errors.New("GetUtf8FromConstPool():索引越界!")
+	}
+	constItem := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
+	return constItem.param, nil
+}
+
+/******************************************************************
+    功能:从常量池中读取Uint32
+	入参:1、常量池
+	    2、常量池索引
+    返回值:1、Uint32值
+	      2、error
+	注:常量池是从1开始计算的，不是从0
+******************************************************************/
+func GetInt32FromConstPool(constPool []byte, index uint32) (uint32, error) {
+	if index == 0 {
+		return memCtrl.INVALID_MEM, errors.New("GetUtf8FromConstPool():索引为0!")
+	}
+	if index > uint32(len(constPool)/4) {
 		return memCtrl.INVALID_MEM, errors.New("GetUtf8FromConstPool():索引越界!")
 	}
 	constItem := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
