@@ -12,7 +12,7 @@ type ACCESS_INFO struct {
 	NextAddr uint32
 }
 
-const ACCESS_INFO_SIZE = 12
+const ACCESS_INFO_SIZE = 3 * 4
 
 var AccHeaderAdr uint32 = memCtrl.INVALID_MEM
 
@@ -34,7 +34,6 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 
 		return accHeader, AccHeaderAdr, nil
 	}
-
 	curAddr := AccHeaderAdr
 	var curAccess *ACCESS_INFO
 	for curAddr != memCtrl.INVALID_MEM {
@@ -42,7 +41,6 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 
 		curAddr = curAccess.NextAddr
 	}
-
 	newAccAdr, err := memCtrl.Malloc(ACCESS_INFO_SIZE, memCtrl.ACCESS_NODE)
 	if err != nil {
 		return nil, memCtrl.INVALID_MEM, errors.New("NewAccessInfo():内存不足")
@@ -50,7 +48,6 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 	curAccess.NextAddr = newAccAdr
 	newAcc := (*ACCESS_INFO)(memCtrl.GetPointer(newAccAdr, ACCESS_INFO_SIZE))
 	newAcc.NextAddr = memCtrl.INVALID_MEM
-
 	return newAcc, newAccAdr, nil
 }
 
@@ -62,4 +59,22 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
 func GetData(accAdr uint32) []byte {
 	acc := (*ACCESS_INFO)(memCtrl.GetPointer(accAdr, ACCESS_INFO_SIZE))
 	return memCtrl.Memory[acc.DataAddr:]
+}
+
+/******************************************************************
+    功能:将引用类型的Type地址修改
+	入参:1、源Type地址
+	    2、目标Type地址
+    返回值:无
+******************************************************************/
+func ModifyTypeAddr(src, dest uint32) {
+	curAddr := AccHeaderAdr
+	var curAccess *ACCESS_INFO
+	for curAddr != memCtrl.INVALID_MEM {
+		curAccess = (*ACCESS_INFO)(memCtrl.GetPointer(curAddr, ACCESS_INFO_SIZE))
+		if curAccess.TypeAddr == src {
+			curAccess.TypeAddr = dest
+		}
+		curAddr = curAccess.NextAddr
+	}
 }

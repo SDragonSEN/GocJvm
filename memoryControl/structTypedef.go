@@ -39,4 +39,6 @@ const (
 	CONSTANT_POOL_NODE         //常量池hash空间
 	INSTANCE_NODE              //实例节点
 	CLASS_INSTANCE_NODE        //类实例节点
+	METHOD_STACK_NODE          //方法栈节点
+	METHOD_FRAME_NODE          //方法栈节点
 )

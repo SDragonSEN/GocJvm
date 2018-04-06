@@ -61,12 +61,12 @@ func getHeader() (*NodeHeader, uint32) {
 func Malloc(size uint32, memType uint8) (uint32, error) {
 	var header *NodeHeader
 	var addr uint32
-
 	header, addr = getHeader()
-
 	for header.NextNode != INVALID_MEM {
 		/* 两个节点之间是否有足够大小 */
+		//可修改为4字节对齐
 		if (header.NextNode - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
+
 			/* 分配新的节点,并初始化Header信息 */
 			newAddr := addr + header.Size
 			newNode := (*NodeHeader)(GetPointer(newAddr, MEM_HEADER_SIZE))
@@ -74,7 +74,6 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 			newNode.NextNode = header.NextNode
 			newNode.Size = size + MEM_HEADER_SIZE
 			newNode.Type = memType
-
 			/* 将分配的内存刷成全0 */
 			for i := newAddr + MEM_HEADER_SIZE; i < newAddr+MEM_HEADER_SIZE+size; i++ {
 				Memory[i] = 0
@@ -82,17 +81,14 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 			/* 修改下一个节点前指针 */
 			nextNode := (*NodeHeader)(GetPointer(header.NextNode, MEM_HEADER_SIZE))
 			nextNode.PreNode = newAddr
-
 			/* 修改上一个节点后指针 */
 			header.NextNode = newAddr
-
-			return newAddr, nil
+			return newAddr + MEM_HEADER_SIZE, nil
 		}
 		/* 指向下一个节点 */
 		addr = header.NextNode
 		header = (*NodeHeader)(GetPointer(header.NextNode, MEM_HEADER_SIZE))
 	}
-
 	newAddr := addr + header.Size
 	if newAddr%4 != 0 {
 		newAddr = (newAddr/4 + 1) * 4
@@ -121,7 +117,7 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
     释放内存
 ******************************************************************/
 func MemFree(addr uint32) error {
-	if addr == 0 || addr == MEM_HEADER_SIZE {
+	if addr <= MEM_HEADER_SIZE {
 		return errors.New("MemFree():Can't Free HeaderNode!")
 	}
 	deleteNode := (*NodeHeader)(GetPointer(addr-MEM_HEADER_SIZE, MEM_HEADER_SIZE))
@@ -165,4 +161,16 @@ func GetArrayPointer(start, length uint32, width int) unsafe.Pointer {
 ******************************************************************/
 func LogMem() {
 	fmt.Println(Memory)
+}
+func LogMemHeader() {
+	var header *NodeHeader
+
+	header, _ = getHeader()
+
+	for header.NextNode != INVALID_MEM {
+		fmt.Println("PreNode", header.PreNode, "NextNode", header.NextNode, "Size", header.Size)
+		/* 指向下一个节点 */
+		header = (*NodeHeader)(GetPointer(header.NextNode, MEM_HEADER_SIZE))
+	}
+	fmt.Println("PreNode", header.PreNode, "NextNode", header.NextNode, "Size", header.Size)
 }

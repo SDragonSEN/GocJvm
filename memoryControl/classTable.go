@@ -23,7 +23,7 @@ func PutClass(className uint32, context []byte) (uint32, error) {
 	newClass.ClassName = className
 	newClass.Next = INVALID_MEM
 	copy(Memory[newClassAdr+CLASS_HEADER_SIZE:newClassAdr+SYMBOL_HEADER_SIZE+uint32(len(context))], context)
-	return newClassAdr, nil
+	return newClassAdr + CLASS_HEADER_SIZE, nil
 }
 
 /***********************************
@@ -35,7 +35,7 @@ func GetClassMemAddr(className uint32) uint32 {
 	for curAddr != INVALID_MEM {
 		curClass = (*ClassItem)(GetPointer(curAddr, CLASS_HEADER_SIZE))
 		if curClass.ClassName == className {
-			return curAddr
+			return curAddr + CLASS_HEADER_SIZE
 		}
 		curAddr = curClass.Next
 	}

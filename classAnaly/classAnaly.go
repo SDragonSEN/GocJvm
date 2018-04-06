@@ -38,9 +38,10 @@ type CLASS_INFO struct {
 	InterfaceNum          uint32 //接口数量
 	MethodDev             uint32 //方法定义偏移
 	MethodNum             uint32 //方法数量
+	LocalAdr              uint32 //该类的地址
 }
 
-const CLASS_INFO_SIZE = 14 * 4
+const CLASS_INFO_SIZE = 16 * 4
 
 type FILED_ITEM struct {
 	FiledName    uint32 //字段名(符号表索引)
@@ -106,12 +107,27 @@ const FILED_ACC_TRANSIENT = 0x0080
 const FILED_ACC_SYNTHETIC = 0x1000
 const FILED_ACC_ENUM = 0x4000
 
-func LoadClass(className string) (uint32, error) {
+const CLASS_ACC_PUBLIC = 0x0001
+const CLASS_ACC_FINAL = 0x0010
+const CLASS_ACC_SUPER = 0x0020 //必选
+const CLASS_ACC_INTERFACE = 0x0200
+const CLASS_ACC_ABSTRACT = 0x0400
+const CLASS_ACC_SYNTHETIC = 0x1000
+const CLASS_ACC_ANNOTATION = 0x2000
+const CLASS_ACC_ENUM = 0x4000
+
+/******************************************************************
+    功能:加载类
+	入参:类名
+    返回值:1、类地址
+	      2、error
+******************************************************************/
+func LoadClass(className string) (*CLASS_INFO, error) {
 
 	//读取字节码文件内容
 	context, err := class.ReadClass(className)
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 
 	//解析结果定义
@@ -123,7 +139,7 @@ func LoadClass(className string) (uint32, error) {
 	//读取魔数
 	context, err = readMagicNum(context)
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 
 	//读取版本号，暂时不使用
@@ -133,21 +149,21 @@ func LoadClass(className string) (uint32, error) {
 	context, constPool, num, err := readConstantPool(context)
 	classInfo.ConstNum = num
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 	result = append(result, constPool...)
 
 	//读取类信息
 	context, classInfo.AccessFlag, classInfo.ClassName, classInfo.SuperClassAddr, err = readClassInfo(context, constPool)
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 
 	//读取接口信息
 	classInfo.InterfaceDev = uint32(len(result))
 	context, num, interfaceInfo, err := readInterfaces(context, constPool)
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 	classInfo.InterfaceNum = num
 	result = append(result, interfaceInfo...)
@@ -177,31 +193,40 @@ func LoadClass(className string) (uint32, error) {
 	result = append(result, unstatic...)
 
 	//静态常量初始化
-	if len(constPair) != 0 {
+	if staticSize != 0 {
 		clazInstAdr, err := memCtrl.Malloc(classInfo.StaticParaSize, memCtrl.CLASS_INSTANCE_NODE)
 		classInfo.StaticMem = clazInstAdr
 		if err != nil {
-			return memCtrl.INVALID_MEM, err
+			return nil, err
 		}
 		for _, pair := range constPair {
 			v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4, 4))
 			*v, err = GetInt32FromConstPool(constPool, pair.ConstIndex)
 			if err != nil {
-				return memCtrl.INVALID_MEM, err
+				return nil, err
 			}
 			if pair.IsLongOrDouble {
 				v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4+4, 4))
 				*v, err = GetInt32FromConstPool(constPool, pair.ConstIndex)
 				if err != nil {
-					return memCtrl.INVALID_MEM, err
+					return nil, err
 				}
 			}
 		}
 	}
+
+	//UnstaticParaTotalSize字段计算
+	superClass := classInfo.GetSuperClass()
+	if superClass == nil {
+		classInfo.UnstaticParaTotalSize = classInfo.UnstaticParaSize
+	} else {
+		classInfo.UnstaticParaTotalSize = classInfo.UnstaticParaSize + superClass.UnstaticParaTotalSize
+	}
+
 	//读取Method
 	context, methods, attris, methodNum, err := readMethods(context, constPool)
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 	classInfo.MethodDev = uint32(len(result))
 	classInfo.MethodNum = methodNum
@@ -222,12 +247,15 @@ func LoadClass(className string) (uint32, error) {
 	//保存到内存中
 	memAdr, err := memCtrl.PutClass(classInfo.ClassName, result)
 
+	classInfo = (*CLASS_INFO)(memCtrl.GetPointer(memAdr, CLASS_INFO_SIZE))
+	classInfo.LocalAdr = memAdr
+
 	if err != nil {
-		return memCtrl.INVALID_MEM, err
+		return nil, err
 	}
 
 	//to do,执行static代码块
-	return memAdr, nil
+	return classInfo, nil
 }
 
 /******************************************************************
@@ -524,7 +552,8 @@ func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, e
 	}
 	//超类名在常量池中为位置
 	superClassNameIndex := uint32(comFunc.BytesToUint16(context[4:6]))
-	superClassAddr := uint32(0)
+	var superClass *CLASS_INFO = nil
+	var superClassAdr uint32 = memCtrl.INVALID_MEM
 	//为0则意味着该类是Object,没有超类
 	if superClassNameIndex != 0 {
 		//超类名在符号表中的位置
@@ -532,19 +561,20 @@ func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, e
 		if err != nil {
 			return nil, 0, memCtrl.INVALID_MEM, memCtrl.INVALID_MEM, err
 		}
-		superClassAddr = memCtrl.GetClassMemAddr(superClassSymbol)
+		superClassAdr = memCtrl.GetClassMemAddr(superClassSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
-		if superClassAddr == memCtrl.INVALID_MEM {
+		if superClassAdr == memCtrl.INVALID_MEM {
 			//获取类名(string)
 			className := string(memCtrl.GetSymbol(superClassSymbol))
-			superClassAddr, err = LoadClass(className)
+			superClass, err = LoadClass(className)
 			if err != nil {
 				return nil, 0, memCtrl.INVALID_MEM, memCtrl.INVALID_MEM, err
 			}
+			superClassAdr = superClass.LocalAdr
 		}
 	}
 
-	return context[6:], accessFlag, classSymbol, superClassAddr, nil
+	return context[6:], accessFlag, classSymbol, superClassAdr, nil
 }
 
 /******************************************************************
@@ -576,10 +606,11 @@ func readInterfaces(context []byte, constPool []byte) ([]byte, uint32, []byte, e
 			//获取接口名(string)
 			interfaceName := string(memCtrl.GetSymbol(interfaceSymbol))
 
-			*adr, err = LoadClass(interfaceName)
+			superClass, err := LoadClass(interfaceName)
 			if err != nil {
 				return nil, 0, nil, err
 			}
+			*adr = superClass.LocalAdr
 		}
 	}
 

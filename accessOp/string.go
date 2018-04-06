@@ -86,7 +86,6 @@ func PutString(s []uint16) (uint32, error) {
 			return memCtrl.INVALID_MEM, err
 		}
 	}
-
 	constantPool := *(*[]HASH_ITEM)(memCtrl.GetArrayPointer(StringPoolAdr, StringPoolCap*HASH_ITEM_SIZE, HASH_ITEM_SIZE))
 
 	//计算字符串Hash值
@@ -111,25 +110,30 @@ func PutString(s []uint16) (uint32, error) {
 		return memCtrl.INVALID_MEM, err
 	}
 	acc.TypeAddr = StringClassAdr
+
 	//分配实例数据
 	acc.DataAddr, err = memCtrl.Malloc(STRING_SIZE, memCtrl.INSTANCE_NODE)
 	if err != nil {
 		return memCtrl.INVALID_MEM, err
 	}
 	str := (*STRING)(comFunc.BytesToUnsafePointer(GetData(adr)))
+
 	//新建数组实例
 	_, str.ArrAdr, err = NewArray([]byte("[C"), 2, uint32(len(s)))
 	if err != nil {
 		return memCtrl.INVALID_MEM, err
 	}
+
 	//拷贝字符数组
 	_, data := GetArrayInfo(str.ArrAdr)
 	chars := *(*[]uint16)(comFunc.BytesToArray(data, 2))
 	copy(chars, s)
+
 	//常量池修改
 	constantPool[index].StrAdr = adr
 	constantPool[index].HashCode = hash
 	StringPoolSize++
+
 	//拓展Hash空间
 	err = ExtendConstantPool()
 	if err != nil {

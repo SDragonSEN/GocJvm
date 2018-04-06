@@ -23,7 +23,7 @@ func Test_ClassTable_Case1(t *testing.T) {
 		t.Error("分配失败!")
 	}
 	if class1 != memCtrl.GetClassMemAddr(memAdr1) || class2 != memCtrl.GetClassMemAddr(memAdr2) {
-		t.Error("获取出错1!")
+		t.Error("获取出错1!", class1, memCtrl.GetClassMemAddr(memAdr1), class2, memCtrl.GetClassMemAddr(memAdr2))
 	}
 	if class1 == class2 {
 		t.Error("获取出错2!")
