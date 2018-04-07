@@ -17,6 +17,12 @@ var UserClassPath []Class      //用户类路径
 
 func InitClassPath(userPath string) {
 	initUserClassPath(userPath)
+	dir, err := NewDirEntry("./", false)
+	if err == nil {
+		UserClassPath = append(UserClassPath, dir)
+	} else {
+		panic("InitClassPath()")
+	}
 	initBootstrapClassPath()
 }
 

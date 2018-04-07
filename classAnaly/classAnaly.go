@@ -78,7 +78,7 @@ type METHOD struct {
 	rsv        [2]uint8
 	MethodName uint32 //方法名
 	Descriptor uint32 //描述符
-	CodeAddr   uint32 //code地址
+	CodeAddr   uint32 //code地址,code属性里没有属性和长度，直接就是Code结构体开始
 	Attribute  uint32 //属性地址
 	AttriNum   uint32 //属性数量
 }
@@ -86,8 +86,8 @@ type METHOD struct {
 const METHOD_SIZE = 6 * 4
 
 type CODE_ATTRI struct {
-	MaxStack       uint32
-	MaxLocal       uint32
+	MaxStack       uint32 //方法栈
+	MaxLocal       uint32 //局部变量大小
 	CodeLength     uint32
 	ExceptionCount uint32
 	AttriNum       uint32
@@ -131,10 +131,11 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 	}
 
 	//解析结果定义
+	classInfoMem := make([]byte, CLASS_INFO_SIZE)
 	result := make([]byte, CLASS_INFO_SIZE)
 
 	//Class Info信息定义
-	classInfo := (*CLASS_INFO)(comFunc.BytesToUnsafePointer(result[0:]))
+	classInfo := (*CLASS_INFO)(comFunc.BytesToUnsafePointer(classInfoMem[0:]))
 
 	//读取魔数
 	context, err = readMagicNum(context)
@@ -244,16 +245,15 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 	//属性暂不解析
 	result = append(result, context...)
 
+	copy(result[0:CLASS_INFO_SIZE], classInfoMem)
 	//保存到内存中
 	memAdr, err := memCtrl.PutClass(classInfo.ClassName, result)
-
 	classInfo = (*CLASS_INFO)(memCtrl.GetPointer(memAdr, CLASS_INFO_SIZE))
 	classInfo.LocalAdr = memAdr
 
 	if err != nil {
 		return nil, err
 	}
-
 	//to do,执行static代码块
 	return classInfo, nil
 }
@@ -761,6 +761,7 @@ func readMethods(context, constPool []byte) ([]byte, []byte, []byte, uint32, err
 	for i := uint32(0); i < methodsNum; i++ {
 		methodInfo_mem := make([]byte, METHOD_SIZE)
 		methodInfo := (*METHOD)(comFunc.BytesToUnsafePointer(methodInfo_mem))
+		methodInfo.CodeAddr = memCtrl.INVALID_MEM
 		//方法可访问性
 		methodInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
 		//方法名

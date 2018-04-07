@@ -60,5 +60,10 @@ func (self *METHOD_STACK) PushFrame(varSize, opStackSize, clazAdr, returnPc uint
 	methodFrame.CurOpStackIndex = 0
 	methodFrame.ReturnPc = returnPc
 	methodFrame.LowFrame = self.TopFrame
+	self.StackNum++
+	self.TopFrame = adr
+	if self.StackNum > self.MaxStackSize {
+		panic("stack overflow！")
+	}
 	return methodFrame, adr
 }
