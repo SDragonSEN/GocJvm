@@ -8,6 +8,10 @@ import (
 var SYM_J uint32 //long型的符号
 var SYM_D uint32 //double型的符号
 
+var SYM_java_io_PrintStream uint32
+var SYM_println uint32
+var SYM_Ljava_lang_String_V uint32
+
 /***********************************
  初始化符号表
 ************************************/
@@ -22,6 +26,18 @@ func SymbolInit() {
 		panic("")
 	}
 	SYM_D, err = PutSymbol([]byte("D"))
+	if err != nil {
+		panic("")
+	}
+	SYM_java_io_PrintStream, err = PutSymbol([]byte("java/io/PrintStream"))
+	if err != nil {
+		panic("")
+	}
+	SYM_println, err = PutSymbol([]byte("println"))
+	if err != nil {
+		panic("")
+	}
+	SYM_Ljava_lang_String_V, err = PutSymbol([]byte("(Ljava/lang/String;)V"))
 	if err != nil {
 		panic("")
 	}

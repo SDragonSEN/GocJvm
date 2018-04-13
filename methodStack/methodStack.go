@@ -1,7 +1,12 @@
 package method
 
 import (
+	"fmt"
+	"unicode/utf16"
+
+	"../accessOp"
 	"../classAnaly"
+	"../comFunc"
 	"../comValue"
 	"../memoryControl"
 )
@@ -73,6 +78,29 @@ func (self *METHOD_STACK) PushFrame(varSize, opStackSize, clazAdr, returnPc uint
 }
 
 /******************************************************************
+    功能:方法压栈
+	入参:无
+    返回值:1、*METHOD_FRAME
+	      2、地址
+******************************************************************/
+func (self *METHOD_STACK) PopFrame() *METHOD_FRAME {
+	if self.StackNum == 0 {
+		panic("PopFrame(): stack is empty!")
+	}
+	curFrameAdr := self.TopFrame
+	curFrame := (*METHOD_FRAME)(memCtrl.GetPointer(curFrameAdr, METHOD_FRAME_SIZE))
+
+	self.TopFrame = curFrame.LowFrame
+	self.PC = curFrame.ReturnPc
+	self.StackNum--
+	memCtrl.MemFree(curFrameAdr)
+	if self.StackNum == 0 {
+		return nil
+	}
+	return (*METHOD_FRAME)(memCtrl.GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
+}
+
+/******************************************************************
     功能:方法帧设置变量区值
 	入参:1、index
 	    2、value
@@ -110,7 +138,7 @@ func (self *METHOD_FRAME) Push(value uint32) {
 	}
 	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex)*4, 4))
 	*p = value
-	self.OpStackSize++
+	self.CurOpStackIndex++
 }
 
 /******************************************************************
@@ -123,16 +151,43 @@ func (self *METHOD_FRAME) Pop() uint32 {
 		panic("Push()操作数栈异常")
 	}
 	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex-1)*4, 4))
-	self.OpStackSize--
+	self.CurOpStackIndex--
 	return *p
 }
+
+/******************************************************************
+    功能:执行函数
+	入参:无
+    返回值:无
+******************************************************************/
 func (self *METHOD_STACK) Excute() {
 	frame := (*METHOD_FRAME)(memCtrl.GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
-	switch memCtrl.Memory[self.PC] {
-	case comValue.GETSTATIC:
-		self.GetStatic(frame)
+	for {
+		switch memCtrl.Memory[self.PC] {
+		case comValue.LDC:
+			self.Ldc(frame)
+		case comValue.GETSTATIC:
+			self.GetStatic(frame)
+		case comValue.INVOKEVIRTUAL:
+			self.InvokeVirtual(frame)
+		case comValue.RETURN:
+			frame = self.PopFrame()
+			if frame == nil {
+				goto label
+			}
+		default:
+			fmt.Println("memCtrl.Memory[self.PC]:", memCtrl.Memory[self.PC])
+			goto label
+		}
 	}
+label:
 }
+
+/******************************************************************
+    功能:getstatic指令
+	入参:无
+    返回值:无
+******************************************************************/
 func (self *METHOD_STACK) GetStatic(frame *METHOD_FRAME) {
 	self.PC++
 	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
@@ -163,5 +218,42 @@ func (self *METHOD_STACK) GetStatic(frame *METHOD_FRAME) {
 	} else {
 		v := superClass.GetStaticData32(filedInfo.FiledName, filedInfo.FiledType)
 		frame.Push(v)
+	}
+}
+
+/******************************************************************
+    功能:ldc指令
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Ldc(frame *METHOD_FRAME) {
+	self.PC++
+	v := classAnaly.GetStringFromConstPool(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(memCtrl.Memory[self.PC]))
+	frame.Push(v)
+	self.PC++
+}
+
+/******************************************************************
+    功能:InvokeVirtual指令
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	self.PC += 2
+	methodRef := classAnaly.GetStaticMethodInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	StubInvokeFunc(frame, methodRef)
+}
+func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) {
+	//System.out.println函数打桩
+	if methodRef.ClassName == memCtrl.SYM_java_io_PrintStream &&
+		methodRef.MethodName == memCtrl.SYM_println &&
+		methodRef.MethodDesp == memCtrl.SYM_Ljava_lang_String_V {
+		strAccess := frame.Pop()
+		strInst := (*access.STRING)(comFunc.BytesToUnsafePointer(access.GetData(strAccess)))
+		_, context := access.GetArrayInfo(strInst.ArrAdr)
+		utf16_str := *(*[]uint16)(comFunc.BytesToArray(context, 2))
+		fmt.Println(string(utf16.Decode(utf16_str)))
 	}
 }
