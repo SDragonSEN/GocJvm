@@ -35,10 +35,7 @@ func Init(size uint32) {
 	headerNode.Type = HEADER_NODE
 
 	//初始化符号表头结点
-	symHeaderAdr, _ = Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
-	symHeader := (*SymbolItem)(comFunc.BytesToUnsafePointer(Memory[symHeaderAdr:]))
-	symHeader.Length = 0
-	symHeader.Next = INVALID_MEM
+	SymbolInit()
 
 	//初始化类表头结点
 	classHeaderAdr, _ = Malloc(CLASS_HEADER_SIZE, CLASS_NODE)
@@ -66,7 +63,6 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 		/* 两个节点之间是否有足够大小 */
 		//可修改为4字节对齐
 		if (header.NextNode - header.Size - addr) >= (size + MEM_HEADER_SIZE) {
-
 			/* 分配新的节点,并初始化Header信息 */
 			newAddr := addr + header.Size
 			newNode := (*NodeHeader)(GetPointer(newAddr, MEM_HEADER_SIZE))
@@ -109,7 +105,6 @@ func Malloc(size uint32, memType uint8) (uint32, error) {
 
 		return newAddr + MEM_HEADER_SIZE, nil
 	}
-
 	return 0, errors.New("Malloc():No Enough Memory!")
 }
 
@@ -164,13 +159,19 @@ func LogMem() {
 }
 func LogMemHeader() {
 	var header *NodeHeader
-
+	node := (*NodeHeader)(GetPointer(33160, MEM_HEADER_SIZE))
+	if node.NextNode == 66236 && node.Size == 33078 {
+		panic("Here!")
+	} else {
+		return
+	}
 	header, _ = getHeader()
-
+	fmt.Println("Begin-Log")
 	for header.NextNode != INVALID_MEM {
 		fmt.Println("PreNode", header.PreNode, "NextNode", header.NextNode, "Size", header.Size)
 		/* 指向下一个节点 */
 		header = (*NodeHeader)(GetPointer(header.NextNode, MEM_HEADER_SIZE))
 	}
 	fmt.Println("PreNode", header.PreNode, "NextNode", header.NextNode, "Size", header.Size)
+	fmt.Println("End-Log")
 }

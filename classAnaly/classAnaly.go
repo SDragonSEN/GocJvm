@@ -49,7 +49,7 @@ type FILED_ITEM struct {
 	FiledInfoDev uint32 //字段描述偏移
 }
 
-const FILED_ITEM_SIZE = 6
+const FILED_ITEM_SIZE = 3 * 4
 
 type FILED_INFO struct {
 	AccessFlag uint16 //可访问性
@@ -145,7 +145,6 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 
 	//读取版本号，暂时不使用
 	context, _, _ = readVersion(context)
-
 	//读取常量池
 	context, constPool, num, err := readConstantPool(context)
 	classInfo.ConstNum = num
@@ -202,13 +201,13 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 		}
 		for _, pair := range constPair {
 			v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4, 4))
-			*v, err = GetInt32FromConstPool(constPool, pair.ConstIndex)
+			*v = GetUint32FromConstPool(constPool, pair.ConstIndex)
 			if err != nil {
 				return nil, err
 			}
 			if pair.IsLongOrDouble {
 				v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4+4, 4))
-				*v, err = GetInt32FromConstPool(constPool, pair.ConstIndex)
+				*v = GetUint32FromConstPool(constPool, pair.ConstIndex)
 				if err != nil {
 					return nil, err
 				}
@@ -307,7 +306,9 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 	var consume uint32
 	var err error
 	for i = 1; i < size; i++ {
+
 		tag := context[count]
+
 		count++
 		switch tag {
 		//Utf8_info
@@ -360,7 +361,7 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 	//将String常量的值换成字符串地址(字符串常量池中的地址)
 	for _, v := range strs {
 		str := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[v : v+4]))
-		strAdr, err := GetUtf8FromConstPool(result, str.param)
+		strAdr := GetUtf8FromConstPool(result, str.param)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -546,34 +547,28 @@ func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, e
 	//类名在常量池中为位置
 	classNameIndex := uint32(comFunc.BytesToUint16(context[2:4]))
 	//类名在符号表中的位置
-	classSymbol, err := GetClassFromConstPool(constPool, classNameIndex)
-	if err != nil {
-		return nil, 0, memCtrl.INVALID_MEM, memCtrl.INVALID_MEM, err
-	}
+	classSymbol := GetClassFromConstPool(constPool, classNameIndex)
+
 	//超类名在常量池中为位置
 	superClassNameIndex := uint32(comFunc.BytesToUint16(context[4:6]))
-	var superClass *CLASS_INFO = nil
 	var superClassAdr uint32 = memCtrl.INVALID_MEM
 	//为0则意味着该类是Object,没有超类
 	if superClassNameIndex != 0 {
 		//超类名在符号表中的位置
-		superClassSymbol, err := GetClassFromConstPool(constPool, superClassNameIndex)
-		if err != nil {
-			return nil, 0, memCtrl.INVALID_MEM, memCtrl.INVALID_MEM, err
-		}
+		superClassSymbol := GetClassFromConstPool(constPool, superClassNameIndex)
+
 		superClassAdr = memCtrl.GetClassMemAddr(superClassSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
 		if superClassAdr == memCtrl.INVALID_MEM {
 			//获取类名(string)
 			className := string(memCtrl.GetSymbol(superClassSymbol))
-			superClass, err = LoadClass(className)
+			superClass, err := LoadClass(className)
 			if err != nil {
 				return nil, 0, memCtrl.INVALID_MEM, memCtrl.INVALID_MEM, err
 			}
 			superClassAdr = superClass.LocalAdr
 		}
 	}
-
 	return context[6:], accessFlag, classSymbol, superClassAdr, nil
 }
 
@@ -596,10 +591,8 @@ func readInterfaces(context []byte, constPool []byte) ([]byte, uint32, []byte, e
 		adr := (*uint32)(comFunc.BytesToUnsafePointer(result[i*4 : i*4+4]))
 		index := uint32(comFunc.BytesToUint16(context[2*i+2 : 2*i+4]))
 		//接口在符号表中的位置
-		interfaceSymbol, err := GetClassFromConstPool(constPool, index)
-		if err != nil {
-			return nil, 0, nil, err
-		}
+		interfaceSymbol := GetClassFromConstPool(constPool, index)
+
 		*adr = memCtrl.GetClassMemAddr(interfaceSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
 		if *adr == memCtrl.INVALID_MEM {
@@ -651,29 +644,17 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 	if err != nil {
 		return nil, nil, nil, nil, 0, 0, nil, err
 	}
-	longSymbol, err := memCtrl.PutSymbol([]byte("J"))
-	if err != nil {
-		return nil, nil, nil, nil, 0, 0, nil, err
-	}
-	doubleSymbol, err := memCtrl.PutSymbol([]byte("D"))
-	if err != nil {
-		return nil, nil, nil, nil, 0, 0, nil, err
-	}
 	for i := uint32(0); i < filedNum; i++ {
 		filed := make([]byte, FILED_INFO_SIZE)
 		filedInfo := (*FILED_INFO)(comFunc.BytesToUnsafePointer(filed))
 		//可访问性
 		filedInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
 		//字段名
-		filedName, err := GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
-		if err != nil {
-			return nil, nil, nil, nil, 0, 0, nil, err
-		}
+		filedName := GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
+
 		//描述符
-		filedInfo.Descriptor, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
-		if err != nil {
-			return nil, nil, nil, nil, 0, 0, nil, err
-		}
+		filedInfo.Descriptor = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
+
 		//属性数量
 		filedInfo.AttriCount = uint32(comFunc.BytesToUint16(context[6:8]))
 
@@ -682,10 +663,8 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 			attriMem := make([]byte, ATTRI_INFO_SIZE)
 			attri := (*ATTRI_INFO)(comFunc.BytesToUnsafePointer(attriMem))
 			//属性名
-			attri.AttriName, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
-			if err != nil {
-				return nil, nil, nil, nil, 0, 0, nil, err
-			}
+			attri.AttriName = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
+
 			//属性长度
 			attri.Length = comFunc.BytesToUint32(context[2:6])
 
@@ -696,8 +675,8 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 				(filedInfo.AccessFlag&FILED_ACC_FINAL == FILED_ACC_FINAL) {
 				constValue := uint32(comFunc.BytesToUint16(context[6:8]))
 
-				if longSymbol == filedName ||
-					doubleSymbol == filedName {
+				if memCtrl.SYM_J == filedInfo.Descriptor ||
+					memCtrl.SYM_D == filedInfo.Descriptor {
 					constPairs = append(constPairs, CONST_PAIR{staticNum, constValue, true})
 				} else {
 					constPairs = append(constPairs, CONST_PAIR{staticNum, constValue, false})
@@ -722,8 +701,8 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 			filedItem.Index = staticNum
 			staticFileds = append(staticFileds, filedMem...)
 			staticNum++
-			if longSymbol == filedItem.FiledName ||
-				doubleSymbol == filedItem.FiledName {
+			if memCtrl.SYM_J == filedInfo.Descriptor ||
+				memCtrl.SYM_D == filedInfo.Descriptor {
 				staticNum++
 			}
 		} else {
@@ -731,8 +710,8 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 			filedItem.Index = unstaticNum
 			unstaticFileds = append(unstaticFileds, filedMem...)
 			unstaticNum++
-			if longSymbol == filedItem.FiledName ||
-				doubleSymbol == filedItem.FiledName {
+			if memCtrl.SYM_J == filedInfo.Descriptor ||
+				memCtrl.SYM_D == filedInfo.Descriptor {
 				unstaticNum++
 			}
 		}
@@ -765,15 +744,13 @@ func readMethods(context, constPool []byte) ([]byte, []byte, []byte, uint32, err
 		//方法可访问性
 		methodInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
 		//方法名
-		methodInfo.MethodName, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
+		methodInfo.MethodName = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
 		if err != nil {
 			return nil, nil, nil, 0, err
 		}
 		//方法描述符
-		methodInfo.Descriptor, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
-		if err != nil {
-			return nil, nil, nil, 0, err
-		}
+		methodInfo.Descriptor = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
+
 		//属性数量
 		attriNum := uint32(comFunc.BytesToUint16(context[6:8]))
 		methodInfo.AttriNum = attriNum
@@ -789,10 +766,8 @@ func readMethods(context, constPool []byte) ([]byte, []byte, []byte, uint32, err
 			attri_mem := make([]byte, ATTRI_INFO_SIZE)
 			attri := (*ATTRI_INFO)(comFunc.BytesToUnsafePointer(attri_mem))
 			//属性名
-			attri.AttriName, err = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
-			if err != nil {
-				return nil, nil, nil, 0, err
-			}
+			attri.AttriName = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
+
 			if attri.AttriName == codeSymbol {
 				//Code属性的处理
 				methodInfo.CodeAddr = uint32(len(attris))
@@ -824,10 +799,10 @@ func readCode(context []byte) []byte {
 	code := (*CODE_ATTRI)(comFunc.BytesToUnsafePointer(code_mem))
 	code.MaxStack = uint32(comFunc.BytesToUint16(context[0:2]))
 	code.MaxLocal = uint32(comFunc.BytesToUint16(context[2:4]))
-	code.CodeLength = uint32(comFunc.BytesToUint16(context[4:8]))
+	code.CodeLength = uint32(comFunc.BytesToUint32(context[4:8]))
 	context = context[8:]
 	codeOp := make([]byte, 0, code.CodeLength)
-	for i := uint32(0); i < code.CodeLength; i++ {
+	for i := uint32(0); i < code.CodeLength; {
 		op := context[i]
 		codeOp = append(codeOp, op)
 		i++
@@ -1026,6 +1001,8 @@ func readCode(context []byte) []byte {
 		case comValue.IFLT:
 			fallthrough
 		case comValue.IFGE:
+			fallthrough
+		case comValue.IFGT:
 			fallthrough
 		case comValue.IFLE:
 			fallthrough

@@ -157,6 +157,7 @@ const IFEQ = 0x99            //操作数,uint16,栈顶等于0则跳转
 const IFNE = 0x9a            //操作数,uint16,栈顶不等于0则跳转
 const IFLT = 0x9b            //操作数,uint16,栈顶小于0则跳转
 const IFGE = 0x9c            //操作数,uint16,栈顶大于等于0则跳转
+const IFGT = 0x9d            //操作数,uint16,栈顶大于0则跳转
 const IFLE = 0x9e            //操作数,uint16,栈顶小于等于0则跳转
 const IF_ICMPEQ = 0x9f       //操作数,uint16,栈顶两元素相等则跳转
 const IF_ICMPNE = 0xa0       //操作数,uint16,栈顶两元素不相等则跳转

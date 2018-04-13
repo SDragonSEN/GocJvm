@@ -37,3 +37,41 @@ func (self *CLASS_INFO) FindMethod(methodName, descriptor uint32) (*METHOD, uint
 	}
 	return nil, memCtrl.INVALID_MEM
 }
+
+/******************************************************************
+    功能:获取static字段值
+	入参:无
+    返回值:1、值
+******************************************************************/
+func (self *CLASS_INFO) GetStaticData32(filedName, descriptor uint32) uint32 {
+	//fmt.Println(string(memCtrl.GetSymbol(filedName)))
+	fileds := *(*[]FILED_ITEM)(memCtrl.GetArrayPointer(self.StaticParaDev+self.LocalAdr, self.UnstaticParaDev-self.StaticParaDev, FILED_ITEM_SIZE))
+	for _, filed := range fileds {
+		if filed.FiledName == filedName {
+			staticAdr := self.StaticMem
+			return *(*uint32)(memCtrl.GetPointer(staticAdr+filed.Index*4, 4))
+		}
+	}
+	panic("GetStaticData32")
+	return 0
+}
+
+/******************************************************************
+    功能:获取static字段值(long,double)
+	入参:无
+    返回值:1、值
+******************************************************************/
+func (self *CLASS_INFO) GetStaticData64(filedName, descriptor uint32) [2]uint32 {
+	var v [2]uint32
+	fileds := *(*[]FILED_ITEM)(memCtrl.GetArrayPointer(self.StaticParaDev+self.LocalAdr, self.UnstaticParaDev-self.StaticParaDev, FILED_ITEM_SIZE))
+	for _, filed := range fileds {
+		if filed.FiledName == filedName {
+			staticAdr := self.StaticMem
+			v[0] = *(*uint32)(memCtrl.GetPointer(staticAdr+filed.Index*4, 4))
+			v[1] = *(*uint32)(memCtrl.GetPointer(staticAdr+filed.Index*4+4, 4))
+			return v
+		}
+	}
+	panic("GetStaticData64")
+	return v
+}

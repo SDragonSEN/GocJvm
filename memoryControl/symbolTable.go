@@ -5,6 +5,28 @@ import (
 	"errors"
 )
 
+var SYM_J uint32 //long型的符号
+var SYM_D uint32 //double型的符号
+
+/***********************************
+ 初始化符号表
+************************************/
+func SymbolInit() {
+	symHeaderAdr, _ = Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
+	symHeader := (*SymbolItem)(GetPointer(symHeaderAdr, SYMBOL_HEADER_SIZE))
+	symHeader.Length = 0
+	symHeader.Next = INVALID_MEM
+	var err error
+	SYM_J, err = PutSymbol([]byte("J"))
+	if err != nil {
+		panic("")
+	}
+	SYM_D, err = PutSymbol([]byte("D"))
+	if err != nil {
+		panic("")
+	}
+}
+
 /***********************************
  添加符号，返回地址
 ************************************/
@@ -18,7 +40,6 @@ func PutSymbol(symbol []byte) (uint32, error) {
 		}
 		curAddr = curSymbol.Next
 	}
-
 	newSymAdr, err := Malloc(uint32(SYMBOL_HEADER_SIZE+len(symbol)), SYMBOL_NODE)
 	if err != nil {
 		return INVALID_MEM, errors.New("PutSymbol():内存不足")

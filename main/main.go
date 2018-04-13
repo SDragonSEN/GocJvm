@@ -7,6 +7,7 @@ import (
 	"../accessOp"
 	"../class"
 	"../classAnaly"
+	"../comFunc"
 	"../memoryControl"
 	"../methodStack"
 	"../startup"
@@ -59,6 +60,27 @@ func main() {
 	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
 	//创建方法栈
 	methodStack := method.NewMethodStack()
-	methodStack.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, mainClass.LocalAdr, 0)
+	frame := methodStack.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, mainClass.LocalAdr, 0)
 	methodStack.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
+
+	//创建main函数参数String,加入到变量区
+	stringAdrs := make([]uint32, len(startup.CmdPara.Args))
+	for i, arg := range startup.CmdPara.Args {
+		stringAdrs[i], err = access.PutString(access.BytesToUint16([]byte(arg)))
+		if err != nil {
+			panic("main()7")
+		}
+	}
+	_, arrAdr, err := access.NewArray([]byte("java/lang/String"), 4, uint32(len(stringAdrs)))
+	if err != nil {
+		panic("main()8")
+	}
+	_, arrData := access.GetArrayInfo(arrAdr)
+	arr := *(*[]uint32)(comFunc.BytesToArray(arrData, 4))
+	for i, v := range stringAdrs {
+		arr[i] = v
+	}
+	frame.SetVar(0, arrAdr)
+	//开始执行
+	methodStack.Excute()
 }
