@@ -99,10 +99,9 @@ func GetConstantPoolSlice(classAdr uint32) []byte {
 	入参:1、常量池
 	    2、Class索引
     返回值:1、符号表地址
-	      2、error
 	注:常量池是从1开始计算的，不是从0
 ******************************************************************/
-func GetClassFromConstPool(constPool []byte, index uint32) uint32 {
+func GetClassNameFromConstPool(constPool []byte, index uint32) uint32 {
 	if index == 0 {
 		panic("GetUtf8FromConstPool() 1")
 	}
@@ -162,4 +161,17 @@ func GetUint32FromConstPool(constPool []byte, index uint32) uint32 {
 func GetStringFromConstPool(constPool []byte, index uint32) uint32 {
 	//实现同utf8
 	return GetUtf8FromConstPool(constPool, index)
+}
+
+/******************************************************************
+    功能:从常量池中读取Class
+	入参:1、常量池
+	    2、String索引
+    返回值:1、实例地址
+	注:常量池是从1开始计算的，不是从0
+******************************************************************/
+func GetClassFromConstPool(constPool []byte, index uint32) uint32 {
+	classIndex := GetUint32FromConstPool(constPool, index)
+	//class的名字在符号表里的位置
+	return GetUint32FromConstPool(constPool, classIndex)
 }

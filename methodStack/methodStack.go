@@ -156,6 +156,19 @@ func (self *METHOD_FRAME) Pop() uint32 {
 }
 
 /******************************************************************
+    功能:获取栈顶元素
+	入参:无
+    返回值:value
+******************************************************************/
+func (self *METHOD_FRAME) Peek() uint32 {
+	if self.CurOpStackIndex == 0 {
+		panic("Push()操作数栈异常")
+	}
+	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex-1)*4, 4))
+	return *p
+}
+
+/******************************************************************
     功能:执行函数
 	入参:无
     返回值:无
@@ -166,17 +179,24 @@ func (self *METHOD_STACK) Excute() {
 		switch memCtrl.Memory[self.PC] {
 		case comValue.LDC:
 			self.Ldc(frame)
+		case comValue.DUP:
+			self.Dup(frame)
 		case comValue.GETSTATIC:
 			self.GetStatic(frame)
 		case comValue.INVOKEVIRTUAL:
 			self.InvokeVirtual(frame)
+		//case comValue.INVOKESPECIAL:
+
 		case comValue.RETURN:
 			frame = self.PopFrame()
 			if frame == nil {
 				goto label
 			}
+		case comValue.NEW:
+			self.New(frame)
+
 		default:
-			fmt.Println("memCtrl.Memory[self.PC]:", memCtrl.Memory[self.PC])
+			fmt.Printf("memCtrl.Memory[self.PC]:%x\n", memCtrl.Memory[self.PC])
 			goto label
 		}
 	}
@@ -195,28 +215,28 @@ func (self *METHOD_STACK) GetStatic(frame *METHOD_FRAME) {
 	//fmt.Println(string(memCtrl.GetSymbol(filedInfo.ClassName)), string(memCtrl.GetSymbol(filedInfo.FiledName)), string(memCtrl.GetSymbol(filedInfo.FiledType)))
 	self.PC += 2
 
-	var superClassAdr uint32
-	superClassAdr = memCtrl.GetClassMemAddr(filedInfo.ClassName)
+	var classAdr uint32
+	classAdr = memCtrl.GetClassMemAddr(filedInfo.ClassName)
 	//如果获取不到，则说明不在内存中，需要去加载
-	if superClassAdr == memCtrl.INVALID_MEM {
+	if classAdr == memCtrl.INVALID_MEM {
 		//获取类名(string)
 		className := string(memCtrl.GetSymbol(filedInfo.ClassName))
-		superClass, err := classAnaly.LoadClass(className)
+		classInfo, err := classAnaly.LoadClass(className)
 		if err != nil {
 			panic("GetStatic()")
 		}
-		superClassAdr = superClass.LocalAdr
+		classAdr = classInfo.LocalAdr
 	}
 
-	superClass := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(superClassAdr, classAnaly.CLASS_INFO_SIZE))
+	classInfo := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
 	//判断是否是long或double型
 	if filedInfo.FiledType == memCtrl.SYM_J ||
 		filedInfo.FiledType == memCtrl.SYM_D {
-		v := superClass.GetStaticData64(filedInfo.FiledName, filedInfo.FiledType)
+		v := classInfo.GetStaticData64(filedInfo.FiledName, filedInfo.FiledType)
 		frame.Push(v[0])
 		frame.Push(v[1])
 	} else {
-		v := superClass.GetStaticData32(filedInfo.FiledName, filedInfo.FiledType)
+		v := classInfo.GetStaticData32(filedInfo.FiledName, filedInfo.FiledType)
 		frame.Push(v)
 	}
 }
@@ -243,9 +263,63 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) {
 	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
 	self.PC += 2
 	methodRef := classAnaly.GetStaticMethodInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
-	StubInvokeFunc(frame, methodRef)
+	if !StubInvokeFunc(frame, methodRef) {
+		fmt.Println("InvokeVirtual()not complete!")
+	}
 }
-func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) {
+
+/******************************************************************
+    功能:New
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) New(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	self.PC += 2
+	className := classAnaly.GetClassFromConstPool(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	var classAdr uint32
+	var classInfo *classAnaly.CLASS_INFO
+	classAdr = memCtrl.GetClassMemAddr(className)
+	//如果获取不到，则说明不在内存中，需要去加载
+	if classAdr == memCtrl.INVALID_MEM {
+		//获取类名(string)
+		classNameStr := string(memCtrl.GetSymbol(className))
+		classInfo, err := classAnaly.LoadClass(classNameStr)
+		if err != nil {
+			panic("GetStatic()")
+		}
+		classAdr = classInfo.LocalAdr
+	}
+	accessInfo, accessAdr, err := access.NewAccessInfo()
+	if err != nil {
+		panic(err)
+	}
+	classInfo = (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
+	accessInfo.TypeAddr = classAdr
+	accessInfo.DataAddr, err = memCtrl.Malloc(classInfo.UnstaticParaTotalSize, memCtrl.INSTANCE_NODE)
+	if err != nil {
+		panic(err)
+	}
+	frame.Push(accessAdr)
+}
+
+/******************************************************************
+    功能:Dup
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Dup(frame *METHOD_FRAME) {
+	self.PC++
+	frame.Push(frame.Peek())
+}
+
+/******************************************************************
+    功能:桩代码
+	入参:无
+    返回值:无
+******************************************************************/
+func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) bool {
 	//System.out.println函数打桩
 	if methodRef.ClassName == memCtrl.SYM_java_io_PrintStream &&
 		methodRef.MethodName == memCtrl.SYM_println &&
@@ -255,5 +329,7 @@ func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) {
 		_, context := access.GetArrayInfo(strInst.ArrAdr)
 		utf16_str := *(*[]uint16)(comFunc.BytesToArray(context, 2))
 		fmt.Println(string(utf16.Decode(utf16_str)))
+		return true
 	}
+	return false
 }

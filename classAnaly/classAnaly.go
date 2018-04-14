@@ -547,7 +547,7 @@ func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, e
 	//类名在常量池中为位置
 	classNameIndex := uint32(comFunc.BytesToUint16(context[2:4]))
 	//类名在符号表中的位置
-	classSymbol := GetClassFromConstPool(constPool, classNameIndex)
+	classSymbol := GetClassNameFromConstPool(constPool, classNameIndex)
 
 	//超类名在常量池中为位置
 	superClassNameIndex := uint32(comFunc.BytesToUint16(context[4:6]))
@@ -555,7 +555,7 @@ func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, e
 	//为0则意味着该类是Object,没有超类
 	if superClassNameIndex != 0 {
 		//超类名在符号表中的位置
-		superClassSymbol := GetClassFromConstPool(constPool, superClassNameIndex)
+		superClassSymbol := GetClassNameFromConstPool(constPool, superClassNameIndex)
 
 		superClassAdr = memCtrl.GetClassMemAddr(superClassSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
@@ -591,7 +591,7 @@ func readInterfaces(context []byte, constPool []byte) ([]byte, uint32, []byte, e
 		adr := (*uint32)(comFunc.BytesToUnsafePointer(result[i*4 : i*4+4]))
 		index := uint32(comFunc.BytesToUint16(context[2*i+2 : 2*i+4]))
 		//接口在符号表中的位置
-		interfaceSymbol := GetClassFromConstPool(constPool, index)
+		interfaceSymbol := GetClassNameFromConstPool(constPool, index)
 
 		*adr = memCtrl.GetClassMemAddr(interfaceSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
