@@ -22,7 +22,7 @@ type MethodInfo struct {
 	    2、常量池中的索引
     返回值:MethodInfo
 ******************************************************************/
-func GetStaticMethodInfo(constPool []byte, index uint32) MethodInfo {
+func GetMethodInfo(constPool []byte, index uint32) MethodInfo {
 	var methodInfo MethodInfo
 	if index == 0 {
 		panic("GetStaticFiledInfo()error0")
@@ -46,7 +46,7 @@ func GetStaticMethodInfo(constPool []byte, index uint32) MethodInfo {
 	    2、常量池中的索引
     返回值:FiledInfo
 ******************************************************************/
-func GetStaticFiledInfo(constPool []byte, index uint32) FiledInfo {
+func GetFiledInfo(constPool []byte, index uint32) FiledInfo {
 	var filedInfo FiledInfo
 	if index == 0 {
 		panic("GetStaticFiledInfo()error0")

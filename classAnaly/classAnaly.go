@@ -30,9 +30,11 @@ type CLASS_INFO struct {
 	FiledInfoDev          uint32 //参数信息偏移
 	UnstaticParaDev       uint32 //非static参数地址
 	UnstaticParaSize      uint32 //非static参数大小
+	UnstaticParaNum       uint32 //非static参数个数
 	UnstaticParaTotalSize uint32 //非static参数内存总大小(即，分配实例的大小)
 	StaticParaDev         uint32 //static参数地址
 	StaticParaSize        uint32 //static参数大小
+	StaticParaNum         uint32 //static参数个数
 	StaticMem             uint32 //类实例地址
 	InterfaceDev          uint32 //接口定义偏移
 	InterfaceNum          uint32 //接口数量
@@ -41,7 +43,7 @@ type CLASS_INFO struct {
 	LocalAdr              uint32 //该类的地址
 }
 
-const CLASS_INFO_SIZE = 16 * 4
+const CLASS_INFO_SIZE = 18 * 4
 
 type FILED_ITEM struct {
 	FiledName    uint32 //字段名(符号表索引)
@@ -185,11 +187,13 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 	//静态字段
 	classInfo.StaticParaDev = uint32(len(result))
 	classInfo.StaticParaSize = staticSize * 4
+	classInfo.StaticParaNum = uint32(len(static) / FILED_ITEM_SIZE)
 	result = append(result, static...)
 
 	//非静态字段
 	classInfo.UnstaticParaDev = uint32(len(result))
 	classInfo.UnstaticParaSize = unstaticSize * 4
+	classInfo.UnstaticParaNum = uint32(len(unstatic) / FILED_ITEM_SIZE)
 	result = append(result, unstatic...)
 
 	//静态常量初始化
