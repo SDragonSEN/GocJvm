@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"../accessOp"
-	"../class"
-	"../comFunc"
-	"../comValue"
-	"../memoryControl"
+	"accessOp"
+	"class"
+	"comFunc"
+	"comValue"
+	"memoryControl"
 )
 
 type CONSTANT_TYPE_16 struct {

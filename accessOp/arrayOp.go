@@ -1,8 +1,8 @@
 package access
 
 import (
-	"../comFunc"
-	"../memoryControl"
+	"comFunc"
+	"memoryControl"
 )
 
 type ARRAY_INFO struct {
@@ -24,7 +24,7 @@ var ArrayClassAdr uint32 = INIT_ARRAY_CLASS_ADR
 	      2、地址
 		  3、error
 ******************************************************************/
-func NewArray(symbol []byte, width uint32, length uint32) (*ACCESS_INFO, uint32, error) {
+func NewArray(symbol, width, length uint32) (*ACCESS_INFO, uint32, error) {
 	//新建引用
 	access, accAdr, err := NewAccessInfo()
 	if err != nil {
@@ -40,10 +40,7 @@ func NewArray(symbol []byte, width uint32, length uint32) (*ACCESS_INFO, uint32,
 	access.TypeAddr = ArrayClassAdr
 	//数组描述符,字宽,长度赋值
 	array := (*ARRAY_INFO)(memCtrl.GetPointer(arrAdr, ARRAY_INFO_SIZE))
-	array.ArrayType, err = memCtrl.PutSymbol(symbol)
-	if err != nil {
-		return nil, memCtrl.INVALID_MEM, err
-	}
+	array.ArrayType = symbol
 	array.Width = width
 	array.Length = length
 

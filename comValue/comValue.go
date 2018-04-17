@@ -201,3 +201,14 @@ const IFNULL = 0xc6          //操作数,uint16,如果栈顶元素为null，则�
 const IFNONNULL = 0xc7       //操作数,uint16,如果栈顶元素不为null，则跳转
 const GOTO_W = 0xc8          //操作数,byte,byte,byte,byte,无条件跳转
 const JSR_W = 0xc9           //不实现
+
+const (
+	AT_BOOLEAN = 4
+	AT_CHAR    = 5
+	AT_FLOAT   = 6
+	AT_DOUBLE  = 7
+	AT_BYTE    = 8
+	AT_SHORT   = 9
+	AT_INT     = 10
+	AT_LONG    = 11
+)

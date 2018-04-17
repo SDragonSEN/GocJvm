@@ -4,13 +4,13 @@ package main
 import (
 	"fmt"
 
-	"../accessOp"
-	"../class"
-	"../classAnaly"
-	"../comFunc"
-	"../memoryControl"
-	"../methodStack"
-	"../startup"
+	"accessOp"
+	"class"
+	"classAnaly"
+	"comFunc"
+	"memoryControl"
+	"methodStack"
+	"startup"
 )
 
 func main() {
@@ -71,7 +71,7 @@ func main() {
 			panic("main()7")
 		}
 	}
-	_, arrAdr, err := access.NewArray([]byte("java/lang/String"), 4, uint32(len(stringAdrs)))
+	_, arrAdr, err := access.NewArray(memCtrl.SYM_Kjava_lang_String, 4, uint32(len(stringAdrs)))
 	if err != nil {
 		panic("main()8")
 	}

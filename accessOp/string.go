@@ -3,8 +3,8 @@ package access
 import (
 	"unicode/utf16"
 
-	"../comFunc"
-	"../memoryControl"
+	"comFunc"
+	"memoryControl"
 )
 
 type STRING struct {
@@ -119,7 +119,7 @@ func PutString(s []uint16) (uint32, error) {
 	str := (*STRING)(comFunc.BytesToUnsafePointer(GetData(adr)))
 
 	//新建数组实例
-	_, str.ArrAdr, err = NewArray([]byte("[C"), 2, uint32(len(s)))
+	_, str.ArrAdr, err = NewArray(memCtrl.SYM_KC, 2, uint32(len(s)))
 	if err != nil {
 		return memCtrl.INVALID_MEM, err
 	}

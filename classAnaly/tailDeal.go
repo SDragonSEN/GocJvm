@@ -1,8 +1,8 @@
 package classAnaly
 
 import (
-	"../comFunc"
-	"../memoryControl"
+	"comFunc"
+	"memoryControl"
 )
 
 /******************************************************************

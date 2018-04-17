@@ -8,6 +8,16 @@ import (
 var SYM_J uint32 //long型的符号
 var SYM_D uint32 //double型的符号
 
+var SYM_Kjava_lang_String uint32
+var SYM_KZ uint32 //boolean
+var SYM_KB uint32
+var SYM_KC uint32
+var SYM_KS uint32
+var SYM_KI uint32
+var SYM_KJ uint32 //long
+var SYM_KF uint32
+var SYM_KD uint32
+
 var SYM_java_io_PrintStream uint32
 var SYM_println uint32
 var SYM_Ljava_lang_String_V uint32
@@ -41,6 +51,43 @@ func SymbolInit() {
 	if err != nil {
 		panic("")
 	}
+	SYM_Kjava_lang_String, err = PutSymbol([]byte("[java/lang/String"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KZ, err = PutSymbol([]byte("[Z"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KB, err = PutSymbol([]byte("[B"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KC, err = PutSymbol([]byte("[C"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KS, err = PutSymbol([]byte("[S"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KI, err = PutSymbol([]byte("[I"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KJ, err = PutSymbol([]byte("[J"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KF, err = PutSymbol([]byte("[F"))
+	if err != nil {
+		panic("")
+	}
+	SYM_KD, err = PutSymbol([]byte("[D"))
+	if err != nil {
+		panic("")
+	}
+
 }
 
 /***********************************

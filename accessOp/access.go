@@ -3,7 +3,7 @@ package access
 import (
 	"errors"
 
-	"../memoryControl"
+	"memoryControl"
 )
 
 type ACCESS_INFO struct {

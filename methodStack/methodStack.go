@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"unicode/utf16"
 
-	"../accessOp"
-	"../classAnaly"
-	"../comFunc"
-	"../comValue"
-	"../memoryControl"
+	"accessOp"
+	"classAnaly"
+	"comFunc"
+	"comValue"
+	"memoryControl"
 )
 
 type METHOD_STACK struct {
@@ -179,14 +179,24 @@ func (self *METHOD_STACK) Excute() {
 		switch memCtrl.Memory[self.PC] {
 		case comValue.ICONST_0:
 			self.IConst(frame, 0)
+		case comValue.ICONST_3:
+			self.IConst(frame, 3)
+		case comValue.BIPUSH:
+			self.BIPush(frame)
 		case comValue.LDC:
 			self.Ldc(frame)
 		case comValue.ALOAD_0:
 			self.Aload(frame, 0)
+		case comValue.ALOAD_1:
+			self.Aload(frame, 1)
+		case comValue.ASTORE_1:
+			self.Store32(frame, 1)
 		case comValue.DUP:
 			self.Dup(frame)
 		case comValue.GETSTATIC:
 			self.GetStatic(frame)
+		case comValue.GETFIELD:
+			self.GetFiled(frame)
 		case comValue.PUTFIELD:
 			self.PutFiled(frame)
 		case comValue.INVOKEVIRTUAL:
@@ -200,7 +210,8 @@ func (self *METHOD_STACK) Excute() {
 			}
 		case comValue.NEW:
 			self.New(frame)
-
+		case comValue.NEWARRAY:
+			self.NewArray(frame)
 		default:
 			fmt.Printf("memCtrl.Memory[self.PC]:%x\n", memCtrl.Memory[self.PC])
 			goto label
@@ -248,6 +259,30 @@ func (self *METHOD_STACK) GetStatic(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
+    功能:GetFiled
+	入参:1、*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) GetFiled(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	filedInfo := classAnaly.GetFiledInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	self.PC += 2
+	accessAdr := frame.Pop()
+	this := (*access.ACCESS_INFO)(memCtrl.GetPointer(accessAdr, access.ACCESS_INFO_SIZE))
+	thisClass := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(this.TypeAddr, classAnaly.CLASS_INFO_SIZE))
+	index := thisClass.GetUnstaticDataIndex(filedInfo.FiledName, filedInfo.FiledType)
+	data := access.GetData(accessAdr)
+	v0 := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4 : index*4+4]))
+	frame.Push(*v0)
+	if filedInfo.FiledType == memCtrl.SYM_J ||
+		filedInfo.FiledType == memCtrl.SYM_D {
+		v1 := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4+4 : index*4+8]))
+		frame.Push(*v1)
+	}
+}
+
+/******************************************************************
     功能:PutFiled
 	入参:1、*METHOD_FRAME
     返回值:无
@@ -283,6 +318,18 @@ func (self *METHOD_STACK) PutFiled(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
+    功能:BIPush指令
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) BIPush(frame *METHOD_FRAME) {
+	self.PC++
+	v := (*int8)(memCtrl.GetPointer(self.PC, 1))
+	self.PC++
+	frame.Push(uint32(*v))
+}
+
+/******************************************************************
     功能:ldc指令
 	入参:无
     返回值:无
@@ -305,6 +352,9 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) {
 	self.PC += 2
 	methodRef := classAnaly.GetMethodInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
 	if !StubInvokeFunc(frame, methodRef) {
+		fmt.Println(string(memCtrl.GetSymbol(methodRef.ClassName)),
+			string(memCtrl.GetSymbol(methodRef.MethodName)),
+			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
 		fmt.Println("InvokeVirtual()not complete!")
 	}
 
@@ -397,6 +447,51 @@ func (self *METHOD_STACK) New(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
+    功能:NewArray
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) NewArray(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint8)(memCtrl.GetPointer(self.PC, 1))
+	var symbol uint32
+	var width uint32
+	switch *p {
+	case comValue.AT_BOOLEAN:
+		symbol = memCtrl.SYM_KZ
+		width = 1
+	case comValue.AT_BYTE:
+		symbol = memCtrl.SYM_KB
+		width = 1
+	case comValue.AT_CHAR:
+		symbol = memCtrl.SYM_KC
+		width = 2
+	case comValue.AT_FLOAT:
+		symbol = memCtrl.SYM_KF
+		width = 4
+	case comValue.AT_DOUBLE:
+		symbol = memCtrl.SYM_KD
+		width = 8
+	case comValue.AT_SHORT:
+		symbol = memCtrl.SYM_KS
+		width = 2
+	case comValue.AT_INT:
+		symbol = memCtrl.SYM_KI
+		width = 4
+	case comValue.AT_LONG:
+		symbol = memCtrl.SYM_KJ
+		width = 8
+	}
+	self.PC++
+
+	_, arrAdr, err := access.NewArray(symbol, width, frame.Pop())
+	if err != nil {
+		panic("NewArray()8")
+	}
+	frame.Push(arrAdr)
+}
+
+/******************************************************************
     功能:Dup
 	入参:*METHOD_FRAME
     返回值:无
@@ -418,14 +513,25 @@ func (self *METHOD_STACK) Aload(frame *METHOD_FRAME, index uint32) {
 }
 
 /******************************************************************
+    功能:Store32
+	入参:1、*METHOD_FRAME
+	    2、局部变量索引
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Store32(frame *METHOD_FRAME, index uint32) {
+	self.PC++
+	frame.SetVar(index, frame.Pop())
+}
+
+/******************************************************************
     功能:IConst
 	入参:1、*METHOD_FRAME
 	    2、值
     返回值:无
 ******************************************************************/
-func (self *METHOD_STACK) IConst(frame *METHOD_FRAME, value uint32) {
+func (self *METHOD_STACK) IConst(frame *METHOD_FRAME, value int32) {
 	self.PC++
-	frame.Push(value)
+	frame.Push(uint32(value))
 }
 
 /******************************************************************

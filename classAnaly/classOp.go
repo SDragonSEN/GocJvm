@@ -1,7 +1,7 @@
 package classAnaly
 
 import (
-	"../memoryControl"
+	"memoryControl"
 )
 
 /******************************************************************

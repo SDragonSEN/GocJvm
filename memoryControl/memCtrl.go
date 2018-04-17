@@ -6,7 +6,7 @@ import (
 	"os"
 	"unsafe"
 
-	"../comFunc"
+	"comFunc"
 )
 
 var Memory []byte
