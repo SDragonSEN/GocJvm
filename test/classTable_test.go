@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"../memoryControl"
+	"memoryControl"
 )
 
 /*********************************************************

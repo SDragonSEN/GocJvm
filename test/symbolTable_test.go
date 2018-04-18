@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"../memoryControl"
+	"memoryControl"
 )
 
 /*********************************************************

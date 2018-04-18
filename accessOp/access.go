@@ -62,6 +62,16 @@ func GetData(accAdr uint32) []byte {
 }
 
 /******************************************************************
+    功能:获取Access的类
+	入参:access地址
+    返回值:1、数据切片
+******************************************************************/
+func GetClassInfo(accAdr uint32) uint32 {
+	acc := (*ACCESS_INFO)(memCtrl.GetPointer(accAdr, ACCESS_INFO_SIZE))
+	return acc.TypeAddr
+}
+
+/******************************************************************
     功能:将引用类型的Type地址修改
 	入参:1、源Type地址
 	    2、目标Type地址

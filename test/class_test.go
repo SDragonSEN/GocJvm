@@ -3,9 +3,9 @@ package test
 import (
 	"testing"
 
-	"../class"
-	"../classAnaly"
-	"../memoryControl"
+	"class"
+	"classAnaly"
+	"memoryControl"
 )
 
 /*********************************************************

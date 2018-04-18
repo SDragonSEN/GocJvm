@@ -4,9 +4,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"../accessOp"
-	"../classAnaly"
-	"../methodStack"
+	"accessOp"
+	"classAnaly"
+	"methodStack"
 )
 
 /*********************************************************
