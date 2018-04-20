@@ -8,12 +8,16 @@ import (
 	"class"
 	"classAnaly"
 	"comFunc"
+	"comValue"
 	"memoryControl"
 	"methodStack"
 	"startup"
 )
 
 func main() {
+
+	comValue.Init()
+
 	startup.ParseCmd()
 	class.InitClassPath(startup.CmdPara.Jar)
 

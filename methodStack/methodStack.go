@@ -23,7 +23,6 @@ const METHOD_STACK_SIZE = 4 * 4
 type METHOD_FRAME struct {
 	LowFrame        uint32 //地址
 	Claz            uint32 //类地址
-	BeginPC         uint32 //字节码指令起始地址
 	ReturnPc        uint32 //返回后的PC地址
 	VarSize         uint32 //变量区大小
 	OpStackSize     uint32 //操作数栈大小
@@ -31,7 +30,7 @@ type METHOD_FRAME struct {
 	LocalAdr        uint32 //Frame的地址
 }
 
-const METHOD_FRAME_SIZE = 8 * 4
+const METHOD_FRAME_SIZE = 7 * 4
 
 /******************************************************************
     功能:新建方法栈
@@ -177,13 +176,25 @@ func (self *METHOD_FRAME) Peek() uint32 {
 func (self *METHOD_STACK) Excute() {
 	frame := (*METHOD_FRAME)(memCtrl.GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
 	for {
+		//self.Log(frame)
+		//fmt.Println(comValue.Format(memCtrl.Memory[self.PC]))
 		switch memCtrl.Memory[self.PC] {
 		case comValue.NOP:
 			self.PC++
+		case comValue.ICONST_M1:
+			self.IConst(frame, -1)
 		case comValue.ICONST_0:
 			self.IConst(frame, 0)
+		case comValue.ICONST_1:
+			self.IConst(frame, 1)
+		case comValue.ICONST_2:
+			self.IConst(frame, 2)
 		case comValue.ICONST_3:
 			self.IConst(frame, 3)
+		case comValue.ICONST_4:
+			self.IConst(frame, 4)
+		case comValue.ICONST_5:
+			self.IConst(frame, 5)
 		case comValue.BIPUSH:
 			self.BIPush(frame)
 		case comValue.LDC:
@@ -200,18 +211,36 @@ func (self *METHOD_STACK) Excute() {
 			self.Load32(frame, 0)
 		case comValue.ALOAD_1:
 			self.Load32(frame, 1)
+		case comValue.BALOAD:
+			self.BALoad(frame)
 		case comValue.ISTORE_2:
 			self.Store32(frame, 2)
 		case comValue.ISTORE_3:
 			self.Store32(frame, 3)
 		case comValue.ASTORE_1:
 			self.Store32(frame, 1)
+		case comValue.ASTORE_2:
+			self.Store32(frame, 2)
+		case comValue.IASTORE:
+			self.IAStore(frame)
+		case comValue.BASTORE:
+			self.BAStore(frame)
 		case comValue.DUP:
 			self.Dup(frame)
+		case comValue.IADD:
+			self.Iadd(frame)
+		case comValue.IMUL:
+			self.Imul(frame)
+		case comValue.IDIV:
+			self.Idiv(frame)
 		case comValue.IREM:
 			self.Irem(frame)
 		case comValue.IFGE:
 			self.Ifge(frame)
+		case comValue.IFNE:
+			self.Ifne(frame)
+		case comValue.IF_ICMPGT:
+			self.Icmpgt(frame)
 		case comValue.IRETURN:
 			frame = self.IReturn(frame)
 			if frame == nil {
@@ -403,11 +432,14 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) *METHOD_FRAME {
 			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
 		panic("InvokeVirtual()6")
 	}
+	fmt.Println(string(memCtrl.GetSymbol(methodRef.ClassName)),
+		string(memCtrl.GetSymbol(methodRef.MethodName)),
+		string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+
 	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
 	//创建方法栈
 	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, methodCLass.LocalAdr, self.PC)
 	self.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
-	newFrame.BeginPC = self.PC
 	newFrame.SetVar(0, this)
 	for i, k := range param {
 		newFrame.SetVar(uint32(i+1), k)
@@ -449,11 +481,14 @@ func (self *METHOD_STACK) InvokeStatic(frame *METHOD_FRAME) *METHOD_FRAME {
 			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
 		panic("InvokeSpecial()6")
 	}
+	fmt.Println(string(memCtrl.GetSymbol(methodRef.ClassName)),
+		string(memCtrl.GetSymbol(methodRef.MethodName)),
+		string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+
 	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
 	//创建方法栈
 	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, classInfo.LocalAdr, self.PC)
 	self.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
-	newFrame.BeginPC = self.PC
 
 	//计算需要弹出的参数个数
 	num := CalParaSize(string(memCtrl.GetSymbol(methodRef.MethodDesp)))
@@ -490,9 +525,9 @@ func (self *METHOD_STACK) InvokeSpecial(frame *METHOD_FRAME) *METHOD_FRAME {
 	} else {
 		classInfo = (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
 	}
-	//fmt.Println(string(memCtrl.GetSymbol(classInfo.ClassName)),
-	//	string(memCtrl.GetSymbol(methodRef.MethodName)),
-	//	string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	fmt.Println(string(memCtrl.GetSymbol(classInfo.ClassName)),
+		string(memCtrl.GetSymbol(methodRef.MethodName)),
+		string(memCtrl.GetSymbol(methodRef.MethodDesp)))
 	//查找方法
 	methodInfo, methodCLass, codeAdr := classInfo.FindMethodEx(methodRef.MethodName, methodRef.MethodDesp)
 	if methodInfo == nil || codeAdr == memCtrl.INVALID_MEM {
@@ -503,7 +538,6 @@ func (self *METHOD_STACK) InvokeSpecial(frame *METHOD_FRAME) *METHOD_FRAME {
 	//创建方法栈
 	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, methodCLass.LocalAdr, self.PC)
 	self.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
-	newFrame.BeginPC = self.PC
 
 	//计算需要弹出的参数个数
 	num := CalParaSize(string(memCtrl.GetSymbol(methodRef.MethodDesp)))
@@ -609,6 +643,47 @@ func (self *METHOD_STACK) Dup(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
+    功能:Iadd
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Iadd(frame *METHOD_FRAME) {
+	self.PC++
+	v0 := int32(frame.Pop())
+	v1 := int32(frame.Pop())
+
+	frame.Push(uint32(v0 + v1))
+}
+
+/******************************************************************
+    功能:Imul
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Imul(frame *METHOD_FRAME) {
+	self.PC++
+	v0 := int32(frame.Pop())
+	v1 := int32(frame.Pop())
+
+	frame.Push(uint32(v0 * v1))
+}
+
+/******************************************************************
+    功能:Idiv
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Idiv(frame *METHOD_FRAME) {
+	self.PC++
+	v1 := int32(frame.Pop())
+	v0 := int32(frame.Pop())
+	if v1 == 0 {
+		panic("Idiv")
+	}
+	frame.Push(uint32(v0 / v1))
+}
+
+/******************************************************************
     功能:Irem
 	入参:*METHOD_FRAME
     返回值:无
@@ -629,12 +704,43 @@ func (self *METHOD_STACK) Irem(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Ifge(frame *METHOD_FRAME) {
-	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
-	self.PC += 2
+	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
 	v := int32(frame.Pop())
 	if v >= 0 {
-		self.PC = frame.BeginPC + uint32(*p)
+		self.PC = uint32(int32(self.PC) + int32(*p))
+	} else {
+		self.PC += 3
+	}
+}
+
+/******************************************************************
+    功能:Ifne
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Ifne(frame *METHOD_FRAME) {
+	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	v := int32(frame.Pop())
+	if v != 0 {
+		self.PC = uint32(int32(self.PC) + int32(*p))
+	} else {
+		self.PC += 3
+	}
+}
+
+/******************************************************************
+    功能:Icmpgt
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Icmpgt(frame *METHOD_FRAME) {
+	p := (*uint16)(memCtrl.GetPointer(self.PC+1, 2))
+	v0 := int32(frame.Pop())
+	v1 := int32(frame.Pop())
+	if v0 > v1 {
+		self.PC = uint32(int32(self.PC) + int32(*p))
+	} else {
+		self.PC += 3
 	}
 }
 
@@ -662,6 +768,69 @@ func (self *METHOD_STACK) IReturn(frame *METHOD_FRAME) *METHOD_FRAME {
 func (self *METHOD_STACK) Load32(frame *METHOD_FRAME, index uint32) {
 	self.PC++
 	frame.Push(frame.GetVar(index))
+}
+
+/******************************************************************
+    功能:IAStore
+	入参:1、*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) IAStore(frame *METHOD_FRAME) {
+	self.PC++
+	v := frame.Pop()
+	index := int32(frame.Pop())
+	arrRef := frame.Pop()
+	if arrRef == 0 {
+		panic("IAStore() null")
+	}
+	arrInfo, context := access.GetArrayInfo(arrRef)
+	if index < 0 || index >= int32(arrInfo.Length) {
+		panic("IAStore()")
+	}
+
+	p := (*uint32)(comFunc.BytesToUnsafePointer(context[index*4 : index*4+4]))
+	*p = v
+}
+
+/******************************************************************
+    功能:BAStore
+	入参:1、*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) BAStore(frame *METHOD_FRAME) {
+	self.PC++
+	v := frame.Pop()
+	index := int32(frame.Pop())
+	arrRef := frame.Pop()
+	if arrRef == 0 {
+		panic("IAStore() null")
+	}
+	arrInfo, context := access.GetArrayInfo(arrRef)
+	if index < 0 || index >= int32(arrInfo.Length) {
+		panic("IAStore()")
+	}
+
+	context[index] = uint8(v)
+}
+
+/******************************************************************
+    功能:BALoad
+	入参:1、*METHOD_FRAME
+	    2、局部变量索引
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) BALoad(frame *METHOD_FRAME) {
+	self.PC++
+	index := int32(frame.Pop())
+	arrRef := frame.Pop()
+	if arrRef == 0 {
+		panic("BALoad() null")
+	}
+	arrInfo, context := access.GetArrayInfo(arrRef)
+	if index < 0 || index >= int32(arrInfo.Length) {
+		panic("BALoad()")
+	}
+	frame.Push(uint32(context[index]))
 }
 
 /******************************************************************
@@ -739,4 +908,25 @@ func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) bool {
 		return true
 	}
 	return false
+}
+
+/******************************************************************
+    功能:桩代码
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Log(frame *METHOD_FRAME) {
+	fmt.Println("---", self.TopFrame, "---")
+	fmt.Print("Stack: ")
+	for i := uint32(0); i < frame.CurOpStackIndex; i++ {
+		p := (*int32)(memCtrl.GetPointer(frame.LocalAdr+METHOD_FRAME_SIZE+(frame.VarSize+i)*4, 4))
+		fmt.Print(*p, " ")
+	}
+	fmt.Println()
+	fmt.Printf("LocalVer: ")
+	for i := uint32(0); i < frame.VarSize; i++ {
+		p := (*int32)(memCtrl.GetPointer(frame.LocalAdr+METHOD_FRAME_SIZE+i*4, 4))
+		fmt.Print(*p, " ")
+	}
+	fmt.Println()
 }
