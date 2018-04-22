@@ -21,6 +21,7 @@ var SYM_KD uint32
 var SYM_java_io_PrintStream uint32
 var SYM_println uint32
 var SYM_Ljava_lang_String_V uint32
+var SYM_S_V uint32
 
 /***********************************
  初始化符号表
@@ -87,7 +88,10 @@ func SymbolInit() {
 	if err != nil {
 		panic("")
 	}
-
+	SYM_S_V, err = PutSymbol([]byte("()V"))
+	if err != nil {
+		panic("")
+	}
 }
 
 /***********************************
