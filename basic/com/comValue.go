@@ -1,4 +1,4 @@
-package comValue
+package com
 
 const NOP = 0x00         //空操作
 const ACONST_NULL = 0x01 //null值入栈
@@ -218,7 +218,7 @@ var m1 map[byte]string
 func Format(op byte) string {
 	return m1[op]
 }
-func Init() {
+func init() {
 	m1 = make(map[byte]string)
 	m1[0x00] = "NOP"
 	m1[0x01] = "ACONST_NULL"

@@ -6,19 +6,17 @@ import (
 	"os"
 	"unsafe"
 
-	"comFunc"
+	. "basic/com"
 )
 
 var Memory []byte
 var memSize uint32
-var symHeaderAdr uint32
-var classHeaderAdr uint32
 
 /******************************************************************
     内存空间初始化，参数为 1、内存大小；
 ******************************************************************/
-func Init(size uint32) {
-
+func init() {
+	size := uint32(1024 * 10240)
 	if size < MEM_HEADER_SIZE {
 		fmt.Println("memCtrl:InitEx():参数错误,size:", size)
 		os.Exit(-1)
@@ -33,16 +31,6 @@ func Init(size uint32) {
 	headerNode.PreNode = INVALID_MEM
 	headerNode.Size = MEM_HEADER_SIZE
 	headerNode.Type = HEADER_NODE
-
-	//初始化符号表头结点
-	SymbolInit()
-
-	//初始化类表头结点
-	classHeaderAdr, _ = Malloc(CLASS_HEADER_SIZE, CLASS_NODE)
-	classHeader := (*ClassItem)(comFunc.BytesToUnsafePointer(Memory[classHeaderAdr:]))
-	classHeader.ClassName = INVALID_MEM
-	classHeader.Next = INVALID_MEM
-
 }
 
 /******************************************************************
@@ -141,14 +129,14 @@ func ReAlloc(size int) (int, error) {
     获取内存空间指针
 ******************************************************************/
 func GetPointer(start, length uint32) unsafe.Pointer {
-	return comFunc.BytesToUnsafePointer(Memory[start : start+length])
+	return BytesToUnsafePointer(Memory[start : start+length])
 }
 
 /******************************************************************
     获取内存空间Array指针
 ******************************************************************/
 func GetArrayPointer(start, length uint32, width int) unsafe.Pointer {
-	return comFunc.BytesToArray(Memory[start:start+length], width)
+	return BytesToArray(Memory[start:start+length], width)
 }
 
 /******************************************************************

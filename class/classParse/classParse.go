@@ -1,122 +1,18 @@
-package classAnaly
+package classParse
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 
-	"accessOp"
-	"class"
-	"comFunc"
-	"comValue"
-	"memoryControl"
+	. "access/string"
+	. "basic/com"
+	. "basic/memCtrl"
+	. "basic/symbol"
+	. "class/classFind"
+	. "class/classInterface"
+	. "class/classTable"
 )
-
-type CONSTANT_TYPE_16 struct {
-	param1 uint16
-	param2 uint16
-}
-
-type CONSTANT_TYPE_32 struct {
-	param uint32
-}
-
-type CLASS_INFO struct {
-	ClassName             uint32 //类名
-	SuperClassAddr        uint32 //父类地址,为0代表是Object类
-	AccessFlag            uint16 //可访问属性
-	rsv                   [2]uint8
-	ConstNum              uint32 //常量数量
-	FiledInfoDev          uint32 //参数信息偏移
-	UnstaticParaDev       uint32 //非static参数地址
-	UnstaticParaSize      uint32 //非static参数大小
-	UnstaticParaNum       uint32 //非static参数个数
-	UnstaticParaTotalSize uint32 //非static参数内存总大小(即，分配实例的大小)
-	StaticParaDev         uint32 //static参数地址
-	StaticParaSize        uint32 //static参数大小
-	StaticParaNum         uint32 //static参数个数
-	StaticMem             uint32 //类实例地址
-	InterfaceDev          uint32 //接口定义偏移
-	InterfaceNum          uint32 //接口数量
-	MethodDev             uint32 //方法定义偏移
-	MethodNum             uint32 //方法数量
-	LocalAdr              uint32 //该类的地址
-}
-
-const CLASS_INFO_SIZE = 18 * 4
-
-type FILED_ITEM struct {
-	FiledName    uint32 //字段名(符号表索引)
-	Index        uint32 //实例(包括类实例)中的索引值,从0开始，遇到long和double则跳1
-	FiledInfoDev uint32 //字段描述偏移
-}
-
-const FILED_ITEM_SIZE = 3 * 4
-
-type FILED_INFO struct {
-	AccessFlag uint16 //可访问性
-	rsv        [2]uint8
-	Descriptor uint32 //描述符(符号表索引)
-	AttriCount uint32 //属性数量
-}
-
-const FILED_INFO_SIZE = 3 * 4
-
-type ATTRI_INFO struct {
-	AttriName uint32 //属性名(符号表中的地址)
-	Length    uint32 //长度
-}
-
-const ATTRI_INFO_SIZE = 8
-
-type CONST_PAIR struct {
-	StaticFiledIndex uint32 //static字段索引
-	ConstIndex       uint32 //常量索引
-	IsLongOrDouble   bool
-}
-
-type METHOD struct {
-	AccessFlag uint16 //可访问属性
-	rsv        [2]uint8
-	MethodName uint32 //方法名
-	Descriptor uint32 //描述符
-	CodeAddr   uint32 //code地址,code属性里没有属性和长度，直接就是Code结构体开始
-	Attribute  uint32 //属性地址
-	AttriNum   uint32 //属性数量
-}
-
-const METHOD_SIZE = 6 * 4
-
-type CODE_ATTRI struct {
-	MaxStack       uint32 //方法栈
-	MaxLocal       uint32 //局部变量大小
-	CodeLength     uint32
-	ExceptionCount uint32
-	AttriNum       uint32
-}
-
-const CODE_ATTRI_SIZE = 20
-
-var magicNum = []byte{0xCA, 0xFE, 0xBA, 0xBE}
-
-const FILED_ACC_PUBLIC = 0x0001
-const FILED_ACC_PRIVATE = 0x0002
-const FILED_ACC_PROTECTED = 0x0004
-const FILED_ACC_STATIC = 0x0008
-const FILED_ACC_FINAL = 0x0010
-const FILED_ACC_VOILATIE = 0x0040
-const FILED_ACC_TRANSIENT = 0x0080
-const FILED_ACC_SYNTHETIC = 0x1000
-const FILED_ACC_ENUM = 0x4000
-
-const CLASS_ACC_PUBLIC = 0x0001
-const CLASS_ACC_FINAL = 0x0010
-const CLASS_ACC_SUPER = 0x0020 //必选
-const CLASS_ACC_INTERFACE = 0x0200
-const CLASS_ACC_ABSTRACT = 0x0400
-const CLASS_ACC_SYNTHETIC = 0x1000
-const CLASS_ACC_ANNOTATION = 0x2000
-const CLASS_ACC_ENUM = 0x4000
 
 /******************************************************************
     功能:加载类
@@ -127,7 +23,7 @@ const CLASS_ACC_ENUM = 0x4000
 func LoadClass(className string) (*CLASS_INFO, error) {
 
 	//读取字节码文件内容
-	context, err := class.ReadClass(className)
+	context, err := ReadClass(className)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +33,8 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 	result := make([]byte, CLASS_INFO_SIZE)
 
 	//Class Info信息定义
-	classInfo := (*CLASS_INFO)(comFunc.BytesToUnsafePointer(classInfoMem[0:]))
-
+	classInfo := (*CLASS_INFO)(BytesToUnsafePointer(classInfoMem[0:]))
+	classInfo.IsCInit = false
 	//读取魔数
 	context, err = readMagicNum(context)
 	if err != nil {
@@ -176,11 +72,11 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 
 	//刷新字段的偏移信息
 	for i := uint32(0); i < uint32(len(unstatic)); i += FILED_ITEM_SIZE {
-		fileditem := (*FILED_ITEM)(comFunc.BytesToUnsafePointer(unstatic[i : i+FILED_ITEM_SIZE]))
+		fileditem := (*FILED_ITEM)(BytesToUnsafePointer(unstatic[i : i+FILED_ITEM_SIZE]))
 		fileditem.FiledInfoDev += classInfo.FiledInfoDev
 	}
 	for i := uint32(0); i < uint32(len(static)); i += FILED_ITEM_SIZE {
-		fileditem := (*FILED_ITEM)(comFunc.BytesToUnsafePointer(static[i : i+FILED_ITEM_SIZE]))
+		fileditem := (*FILED_ITEM)(BytesToUnsafePointer(static[i : i+FILED_ITEM_SIZE]))
 		fileditem.FiledInfoDev += classInfo.FiledInfoDev
 	}
 	result = append(result, attriInfo...)
@@ -198,19 +94,19 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 
 	//静态常量初始化
 	if staticSize != 0 {
-		clazInstAdr, err := memCtrl.Malloc(classInfo.StaticParaSize, memCtrl.CLASS_INSTANCE_NODE)
+		clazInstAdr, err := Malloc(classInfo.StaticParaSize, CLASS_INSTANCE_NODE)
 		classInfo.StaticMem = clazInstAdr
 		if err != nil {
 			return nil, err
 		}
 		for _, pair := range constPair {
-			v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4, 4))
+			v := (*uint32)(GetPointer(clazInstAdr+pair.StaticFiledIndex*4, 4))
 			*v = GetUint32FromConstPool(constPool, pair.ConstIndex)
 			if err != nil {
 				return nil, err
 			}
 			if pair.IsLongOrDouble {
-				v := (*uint32)(memCtrl.GetPointer(clazInstAdr+pair.StaticFiledIndex*4+4, 4))
+				v := (*uint32)(GetPointer(clazInstAdr+pair.StaticFiledIndex*4+4, 4))
 				*v = GetUint32FromConstPool(constPool, pair.ConstIndex)
 				if err != nil {
 					return nil, err
@@ -237,10 +133,12 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 
 	//刷新属性的偏移值
 	attriDev := uint32(len(methods) + len(result))
-	methodInfos := *(*[]METHOD)(comFunc.BytesToArray(methods, METHOD_SIZE))
+	methodInfos := *(*[]METHOD)(BytesToArray(methods, METHOD_SIZE))
 	for i := 0; i < len(methodInfos); i++ {
 		methodInfos[i].Attribute += attriDev
-		methodInfos[i].CodeAddr += attriDev
+		if methodInfos[i].CodeAddr != INVALID_MEM {
+			methodInfos[i].CodeAddr += attriDev
+		}
 	}
 	result = append(result, methods...)
 	result = append(result, attris...)
@@ -250,8 +148,8 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 
 	copy(result[0:CLASS_INFO_SIZE], classInfoMem)
 	//保存到内存中
-	memAdr, err := memCtrl.PutClass(classInfo.ClassName, result)
-	classInfo = (*CLASS_INFO)(memCtrl.GetPointer(memAdr, CLASS_INFO_SIZE))
+	memAdr, err := PutClass(classInfo.ClassName, result)
+	classInfo = (*CLASS_INFO)(GetPointer(memAdr, CLASS_INFO_SIZE))
 	classInfo.LocalAdr = memAdr
 
 	if err != nil {
@@ -268,7 +166,7 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 	      2、error
 ******************************************************************/
 func readMagicNum(context []byte) ([]byte, error) {
-	if bytes.Compare(context[0:4], magicNum) != 0 {
+	if bytes.Compare(context[0:4], MagicNum) != 0 {
 		return nil, errors.New("classAnaly.readMagicNum():魔数不正确")
 	}
 	return context[4:], nil
@@ -283,8 +181,8 @@ func readMagicNum(context []byte) ([]byte, error) {
 ******************************************************************/
 func readVersion(context []byte) ([]byte, uint16, uint16) {
 	var minor_version, major_version uint16
-	minor_version = comFunc.BytesToUint16(context[0:2])
-	major_version = comFunc.BytesToUint16(context[2:4])
+	minor_version = BytesToUint16(context[0:2])
+	major_version = BytesToUint16(context[2:4])
 	return context[4:], minor_version, major_version
 }
 
@@ -298,7 +196,7 @@ func readVersion(context []byte) ([]byte, uint16, uint16) {
 ******************************************************************/
 func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 	//符号数量从1到size-1
-	size := comFunc.BytesToUint16(context[0:2])
+	size := BytesToUint16(context[0:2])
 	//消耗的码流数量
 	var count uint32
 	count = 2
@@ -364,12 +262,12 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 	}
 	//将String常量的值换成字符串地址(字符串常量池中的地址)
 	for _, v := range strs {
-		str := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[v : v+4]))
-		strAdr := GetUtf8FromConstPool(result, str.param)
+		str := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[v : v+4]))
+		strAdr := GetUtf8FromConstPool(result, str.Param)
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		str.param, err = access.PutString(access.BytesToUint16(memCtrl.GetSymbol(strAdr)))
+		str.Param, err = PutString(BytesToUtf16(GetSymbol(strAdr)))
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -385,14 +283,14 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 ******************************************************************/
 func readConstantUtf8Info(context []byte) ([]byte, uint32, error) {
 	//获取utf8长度
-	length := comFunc.BytesToUint16(context[0:2])
+	length := BytesToUint16(context[0:2])
 	var count uint32
 	var err error
 	count = 2
 	result := [4]byte{}
-	constant32 := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[:]))
+	constant32 := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[:]))
 	//将utf8码流加到符号表中
-	constant32.param, err = memCtrl.PutSymbol(context[count : count+uint32(length)])
+	constant32.Param, err = PutSymbol(context[count : count+uint32(length)])
 	if err != nil {
 		return nil, 0, err
 	}
@@ -408,10 +306,10 @@ func readConstantUtf8Info(context []byte) ([]byte, uint32, error) {
 ******************************************************************/
 func readConstantIntegerInfo(context []byte) ([]byte, uint32) {
 	//获取integer值
-	integer := comFunc.BytesToUint32(context[0:4])
+	integer := BytesToUint32(context[0:4])
 	result := [4]byte{}
-	constantInt := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[:]))
-	constantInt.param = integer
+	constantInt := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[:]))
+	constantInt.Param = integer
 	return result[:], 4
 }
 
@@ -435,14 +333,14 @@ func readConstantFloatInfo(context []byte) ([]byte, uint32) {
 func readConstantLongInfo(context []byte) ([]byte, uint32) {
 	result := [8]byte{}
 	//获取高位
-	long := comFunc.BytesToUint32(context[0:4])
+	long := BytesToUint32(context[0:4])
 
-	constant64 := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[0:4]))
-	constant64.param = long
+	constant64 := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[0:4]))
+	constant64.Param = long
 	//获取低位
-	long = comFunc.BytesToUint32(context[4:8])
-	constant64 = (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[4:8]))
-	constant64.param = long
+	long = BytesToUint32(context[4:8])
+	constant64 = (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[4:8]))
+	constant64.Param = long
 	return result[:], 8
 }
 
@@ -465,10 +363,10 @@ func readConstantDoubleInfo(context []byte) ([]byte, uint32) {
 ******************************************************************/
 func readConstantClassInfo(context []byte) ([]byte, uint32) {
 	//获取index值
-	index := comFunc.BytesToUint16(context[0:2])
+	index := BytesToUint16(context[0:2])
 	result := [4]byte{}
-	constantInt := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(result[:]))
-	constantInt.param = uint32(index)
+	constantInt := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[:]))
+	constantInt.Param = uint32(index)
 	return result[:], 2
 }
 
@@ -492,13 +390,13 @@ func readConstantStringInfo(context []byte) ([]byte, uint32) {
 func readConstantFieldrefInfo(context []byte) ([]byte, uint32) {
 
 	result := [4]byte{}
-	constantInt := (*CONSTANT_TYPE_16)(comFunc.BytesToUnsafePointer(result[:]))
+	constantInt := (*CONSTANT_TYPE_16)(BytesToUnsafePointer(result[:]))
 	//获取class index值
-	index := comFunc.BytesToUint16(context[0:2])
-	constantInt.param1 = index
+	index := BytesToUint16(context[0:2])
+	constantInt.Param1 = index
 	//获取name and type index值
-	index = comFunc.BytesToUint16(context[2:4])
-	constantInt.param2 = index
+	index = BytesToUint16(context[2:4])
+	constantInt.Param2 = index
 	return result[:], 4
 }
 
@@ -547,28 +445,28 @@ func readConstantNameAndTypeInfo(context []byte) ([]byte, uint32) {
 func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, error) {
 
 	//可访问性
-	accessFlag := comFunc.BytesToUint16(context[0:2])
+	accessFlag := BytesToUint16(context[0:2])
 	//类名在常量池中为位置
-	classNameIndex := uint32(comFunc.BytesToUint16(context[2:4]))
+	classNameIndex := uint32(BytesToUint16(context[2:4]))
 	//类名在符号表中的位置
 	classSymbol := GetClassNameFromConstPool(constPool, classNameIndex)
 
 	//超类名在常量池中为位置
-	superClassNameIndex := uint32(comFunc.BytesToUint16(context[4:6]))
-	var superClassAdr uint32 = memCtrl.INVALID_MEM
+	superClassNameIndex := uint32(BytesToUint16(context[4:6]))
+	var superClassAdr uint32 = INVALID_MEM
 	//为0则意味着该类是Object,没有超类
 	if superClassNameIndex != 0 {
 		//超类名在符号表中的位置
 		superClassSymbol := GetClassNameFromConstPool(constPool, superClassNameIndex)
 
-		superClassAdr = memCtrl.GetClassMemAddr(superClassSymbol)
+		superClassAdr = GetClassMemAddr(superClassSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
-		if superClassAdr == memCtrl.INVALID_MEM {
+		if superClassAdr == INVALID_MEM {
 			//获取类名(string)
-			className := string(memCtrl.GetSymbol(superClassSymbol))
+			className := string(GetSymbol(superClassSymbol))
 			superClass, err := LoadClass(className)
 			if err != nil {
-				return nil, 0, memCtrl.INVALID_MEM, memCtrl.INVALID_MEM, err
+				return nil, 0, INVALID_MEM, INVALID_MEM, err
 			}
 			superClassAdr = superClass.LocalAdr
 		}
@@ -584,7 +482,7 @@ func readClassInfo(context, constPool []byte) ([]byte, uint16, uint32, uint32, e
 ******************************************************************/
 func readInterfaces(context []byte, constPool []byte) ([]byte, uint32, []byte, error) {
 
-	interfaceNum := comFunc.BytesToUint16(context[0:2])
+	interfaceNum := BytesToUint16(context[0:2])
 	result := make([]byte, interfaceNum*4)
 
 	//接口数量
@@ -592,16 +490,16 @@ func readInterfaces(context []byte, constPool []byte) ([]byte, uint32, []byte, e
 
 	for i := uint32(0); i < num; i++ {
 
-		adr := (*uint32)(comFunc.BytesToUnsafePointer(result[i*4 : i*4+4]))
-		index := uint32(comFunc.BytesToUint16(context[2*i+2 : 2*i+4]))
+		adr := (*uint32)(BytesToUnsafePointer(result[i*4 : i*4+4]))
+		index := uint32(BytesToUint16(context[2*i+2 : 2*i+4]))
 		//接口在符号表中的位置
 		interfaceSymbol := GetClassNameFromConstPool(constPool, index)
 
-		*adr = memCtrl.GetClassMemAddr(interfaceSymbol)
+		*adr = GetClassMemAddr(interfaceSymbol)
 		//如果获取不到，则说明不在内存中，需要去加载
-		if *adr == memCtrl.INVALID_MEM {
+		if *adr == INVALID_MEM {
 			//获取接口名(string)
-			interfaceName := string(memCtrl.GetSymbol(interfaceSymbol))
+			interfaceName := string(GetSymbol(interfaceSymbol))
 
 			superClass, err := LoadClass(interfaceName)
 			if err != nil {
@@ -632,7 +530,7 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 	staticNum := uint32(0)
 
 	//字段数量
-	filedNum := uint32(comFunc.BytesToUint16(context[0:2]))
+	filedNum := uint32(BytesToUint16(context[0:2]))
 	context = context[2:]
 
 	//字段信息
@@ -644,43 +542,43 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 	//常量对
 	constPairs := make([]CONST_PAIR, 0)
 
-	constSymbol, err := memCtrl.PutSymbol([]byte("ConstantValue"))
+	constSymbol, err := PutSymbol([]byte("ConstantValue"))
 	if err != nil {
 		return nil, nil, nil, nil, 0, 0, nil, err
 	}
 	for i := uint32(0); i < filedNum; i++ {
 		filed := make([]byte, FILED_INFO_SIZE)
-		filedInfo := (*FILED_INFO)(comFunc.BytesToUnsafePointer(filed))
+		filedInfo := (*FILED_INFO)(BytesToUnsafePointer(filed))
 		//可访问性
-		filedInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
+		filedInfo.AccessFlag = BytesToUint16(context[0:2])
 		//字段名
-		filedName := GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
+		filedName := GetUtf8FromConstPool(constPool, uint32(BytesToUint16(context[2:4])))
 
 		//描述符
-		filedInfo.Descriptor = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
+		filedInfo.Descriptor = GetUtf8FromConstPool(constPool, uint32(BytesToUint16(context[4:6])))
 
 		//属性数量
-		filedInfo.AttriCount = uint32(comFunc.BytesToUint16(context[6:8]))
+		filedInfo.AttriCount = uint32(BytesToUint16(context[6:8]))
 
 		context = context[8:]
 		for j := uint32(0); j < filedInfo.AttriCount; j++ {
 			attriMem := make([]byte, ATTRI_INFO_SIZE)
-			attri := (*ATTRI_INFO)(comFunc.BytesToUnsafePointer(attriMem))
+			attri := (*ATTRI_INFO)(BytesToUnsafePointer(attriMem))
 			//属性名
-			attri.AttriName = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
+			attri.AttriName = GetUtf8FromConstPool(constPool, uint32(BytesToUint16(context[0:2])))
 
 			//属性长度
-			attri.Length = comFunc.BytesToUint32(context[2:6])
+			attri.Length = BytesToUint32(context[2:6])
 
 			//判断是否是常量属性
 			//静态常量的处理
 			if attri.AttriName == constSymbol &&
 				(filedInfo.AccessFlag&FILED_ACC_STATIC == FILED_ACC_STATIC) &&
 				(filedInfo.AccessFlag&FILED_ACC_FINAL == FILED_ACC_FINAL) {
-				constValue := uint32(comFunc.BytesToUint16(context[6:8]))
+				constValue := uint32(BytesToUint16(context[6:8]))
 
-				if memCtrl.SYM_J == filedInfo.Descriptor ||
-					memCtrl.SYM_D == filedInfo.Descriptor {
+				if SYM_J == filedInfo.Descriptor ||
+					SYM_D == filedInfo.Descriptor {
 					constPairs = append(constPairs, CONST_PAIR{staticNum, constValue, true})
 				} else {
 					constPairs = append(constPairs, CONST_PAIR{staticNum, constValue, false})
@@ -695,7 +593,7 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 
 		//字段Item
 		filedMem := make([]byte, FILED_ITEM_SIZE)
-		filedItem := (*FILED_ITEM)(comFunc.BytesToUnsafePointer(filedMem))
+		filedItem := (*FILED_ITEM)(BytesToUnsafePointer(filedMem))
 		filedItem.FiledInfoDev = uint32(len(filedInfos))
 		filedItem.FiledName = filedName
 
@@ -705,8 +603,8 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 			filedItem.Index = staticNum
 			staticFileds = append(staticFileds, filedMem...)
 			staticNum++
-			if memCtrl.SYM_J == filedInfo.Descriptor ||
-				memCtrl.SYM_D == filedInfo.Descriptor {
+			if SYM_J == filedInfo.Descriptor ||
+				SYM_D == filedInfo.Descriptor {
 				staticNum++
 			}
 		} else {
@@ -714,8 +612,8 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 			filedItem.Index = unstaticNum
 			unstaticFileds = append(unstaticFileds, filedMem...)
 			unstaticNum++
-			if memCtrl.SYM_J == filedInfo.Descriptor ||
-				memCtrl.SYM_D == filedInfo.Descriptor {
+			if SYM_J == filedInfo.Descriptor ||
+				SYM_D == filedInfo.Descriptor {
 				unstaticNum++
 			}
 		}
@@ -736,52 +634,52 @@ func readFields(context, constPool []byte) ([]byte, []byte, []byte, []byte, uint
 ******************************************************************/
 func readMethods(context, constPool []byte) ([]byte, []byte, []byte, uint32, error) {
 	//方法数量
-	methodsNum := uint32(comFunc.BytesToUint16(context[0:2]))
+	methodsNum := uint32(BytesToUint16(context[0:2]))
 	context = context[2:]
 	methods := make([]byte, 0)
 	attris := make([]byte, 0)
 	var err error
 	for i := uint32(0); i < methodsNum; i++ {
 		methodInfo_mem := make([]byte, METHOD_SIZE)
-		methodInfo := (*METHOD)(comFunc.BytesToUnsafePointer(methodInfo_mem))
-		methodInfo.CodeAddr = memCtrl.INVALID_MEM
+		methodInfo := (*METHOD)(BytesToUnsafePointer(methodInfo_mem))
+		methodInfo.CodeAddr = INVALID_MEM
 		//方法可访问性
-		methodInfo.AccessFlag = comFunc.BytesToUint16(context[0:2])
+		methodInfo.AccessFlag = BytesToUint16(context[0:2])
 		//方法名
-		methodInfo.MethodName = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[2:4])))
+		methodInfo.MethodName = GetUtf8FromConstPool(constPool, uint32(BytesToUint16(context[2:4])))
 		if err != nil {
 			return nil, nil, nil, 0, err
 		}
 		//方法描述符
-		methodInfo.Descriptor = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[4:6])))
+		methodInfo.Descriptor = GetUtf8FromConstPool(constPool, uint32(BytesToUint16(context[4:6])))
 
 		//属性数量
-		attriNum := uint32(comFunc.BytesToUint16(context[6:8]))
+		attriNum := uint32(BytesToUint16(context[6:8]))
 		methodInfo.AttriNum = attriNum
 		//属性地址
 		methodInfo.Attribute = uint32(len(attris))
 		context = context[8:]
 		//Code符号表中的地址
-		codeSymbol, err := memCtrl.PutSymbol([]byte("Code"))
+		codeSymbol, err := PutSymbol([]byte("Code"))
 		if err != nil {
 			return nil, nil, nil, 0, err
 		}
 		for j := uint32(0); j < attriNum; j++ {
 			attri_mem := make([]byte, ATTRI_INFO_SIZE)
-			attri := (*ATTRI_INFO)(comFunc.BytesToUnsafePointer(attri_mem))
+			attri := (*ATTRI_INFO)(BytesToUnsafePointer(attri_mem))
 			//属性名
-			attri.AttriName = GetUtf8FromConstPool(constPool, uint32(comFunc.BytesToUint16(context[0:2])))
+			attri.AttriName = GetUtf8FromConstPool(constPool, uint32(BytesToUint16(context[0:2])))
 
 			if attri.AttriName == codeSymbol {
 				//Code属性的处理
 				methodInfo.CodeAddr = uint32(len(attris))
-				attriLength := uint32(comFunc.BytesToUint32(context[2:6]))
+				attriLength := uint32(BytesToUint32(context[2:6]))
 				codeMem := readCode(context[uint32(6) : uint32(6)+attriLength])
 				attris = append(attris, codeMem...)
 				context = context[uint32(6)+attriLength:]
 			} else {
 				//非Code属性的处理
-				attri.Length = uint32(comFunc.BytesToUint32(context[2:6]))
+				attri.Length = uint32(BytesToUint32(context[2:6]))
 				attris = append(attris, attri_mem...)
 				attris = append(attris, context[6:uint32(6)+attri.Length]...)
 				context = context[uint32(6)+attri.Length:]
@@ -800,10 +698,10 @@ func readMethods(context, constPool []byte) ([]byte, []byte, []byte, uint32, err
 ******************************************************************/
 func readCode(context []byte) []byte {
 	code_mem := make([]byte, CODE_ATTRI_SIZE)
-	code := (*CODE_ATTRI)(comFunc.BytesToUnsafePointer(code_mem))
-	code.MaxStack = uint32(comFunc.BytesToUint16(context[0:2]))
-	code.MaxLocal = uint32(comFunc.BytesToUint16(context[2:4]))
-	code.CodeLength = uint32(comFunc.BytesToUint32(context[4:8]))
+	code := (*CODE_ATTRI)(BytesToUnsafePointer(code_mem))
+	code.MaxStack = uint32(BytesToUint16(context[0:2]))
+	code.MaxLocal = uint32(BytesToUint16(context[2:4]))
+	code.CodeLength = uint32(BytesToUint32(context[4:8]))
 	context = context[8:]
 	codeOp := make([]byte, 0, code.CodeLength)
 	for i := uint32(0); i < code.CodeLength; {
@@ -811,352 +709,352 @@ func readCode(context []byte) []byte {
 		codeOp = append(codeOp, op)
 		i++
 		switch op {
-		case comValue.NOP:
-		case comValue.ACONST_NULL:
-		case comValue.ICONST_M1:
-		case comValue.ICONST_0:
-		case comValue.ICONST_1:
-		case comValue.ICONST_2:
-		case comValue.ICONST_3:
-		case comValue.ICONST_4:
-		case comValue.ICONST_5:
-		case comValue.LCONST_0:
-		case comValue.LCONST_1:
-		case comValue.FCONST_0:
-		case comValue.FCONST_1:
-		case comValue.FCONST_2:
-		case comValue.DCONST_0:
-		case comValue.DCONST_1:
-		case comValue.ILOAD_0:
-		case comValue.ILOAD_1:
-		case comValue.ILOAD_2:
-		case comValue.ILOAD_3:
-		case comValue.LLOAD_0:
-		case comValue.LLOAD_1:
-		case comValue.LLOAD_2:
-		case comValue.LLOAD_3:
-		case comValue.FLOAD_0:
-		case comValue.FLOAD_1:
-		case comValue.FLOAD_2:
-		case comValue.FLOAD_3:
-		case comValue.DLOAD_0:
-		case comValue.DLOAD_1:
-		case comValue.DLOAD_2:
-		case comValue.DLOAD_3:
-		case comValue.ALOAD_0:
-		case comValue.ALOAD_1:
-		case comValue.ALOAD_2:
-		case comValue.ALOAD_3:
-		case comValue.IALOAD:
-		case comValue.LALOAD:
-		case comValue.FALOAD:
-		case comValue.DALOAD:
-		case comValue.AALOAD:
-		case comValue.BALOAD:
-		case comValue.CALOAD:
-		case comValue.SALOAD:
-		case comValue.ISTORE_0:
-		case comValue.ISTORE_1:
-		case comValue.ISTORE_2:
-		case comValue.ISTORE_3:
-		case comValue.LSTORE_0:
-		case comValue.LSTORE_1:
-		case comValue.LSTORE_2:
-		case comValue.LSTORE_3:
-		case comValue.FSTORE_0:
-		case comValue.FSTORE_1:
-		case comValue.FSTORE_2:
-		case comValue.FSTORE_3:
-		case comValue.DSTORE_0:
-		case comValue.DSTORE_1:
-		case comValue.DSTORE_2:
-		case comValue.DSTORE_3:
-		case comValue.ASTORE_0:
-		case comValue.ASTORE_1:
-		case comValue.ASTORE_2:
-		case comValue.ASTORE_3:
-		case comValue.IASTORE:
-		case comValue.LASTORE:
-		case comValue.FASTORE:
-		case comValue.DASTORE:
-		case comValue.AASTORE:
-		case comValue.BASTORE:
-		case comValue.CASTORE:
-		case comValue.SASTORE:
-		case comValue.POP:
-		case comValue.POP2:
-		case comValue.DUP:
-		case comValue.DUP_X1:
-		case comValue.DUP_X2:
-		case comValue.DUP2:
-		case comValue.DUP2_X1:
-		case comValue.DUP2_X2:
-		case comValue.SWAP:
-		case comValue.IADD:
-		case comValue.LADD:
-		case comValue.FADD:
-		case comValue.DADD:
-		case comValue.ISUB:
-		case comValue.LSUB:
-		case comValue.FSUB:
-		case comValue.DSUB:
-		case comValue.IMUL:
-		case comValue.LMUL:
-		case comValue.FMUL:
-		case comValue.DMUL:
-		case comValue.IDIV:
-		case comValue.LDIV:
-		case comValue.FDIV:
-		case comValue.DDIV:
-		case comValue.IREM:
-		case comValue.LREM:
-		case comValue.FREM:
-		case comValue.DREM:
-		case comValue.INEG:
-		case comValue.LENG:
-		case comValue.FNEG:
-		case comValue.DNEG:
-		case comValue.ISHL:
-		case comValue.LSHL:
-		case comValue.ISHR:
-		case comValue.LSHR:
-		case comValue.IUSHR:
-		case comValue.LUSHR:
-		case comValue.IAND:
-		case comValue.LAND:
-		case comValue.IOR:
-		case comValue.LOR:
-		case comValue.IXOR:
-		case comValue.LXOR:
-		case comValue.I2L:
-		case comValue.I2F:
-		case comValue.I2D:
-		case comValue.L2I:
-		case comValue.L2F:
-		case comValue.L2D:
-		case comValue.F2I:
-		case comValue.F2L:
-		case comValue.F2D:
-		case comValue.D2I:
-		case comValue.D2L:
-		case comValue.D2F:
-		case comValue.I2B:
-		case comValue.I2C:
-		case comValue.I2S:
-		case comValue.LCMP:
-		case comValue.FCMPL:
-		case comValue.FCMPG:
-		case comValue.DCMPL:
-		case comValue.DCMPG:
-		case comValue.IRETURN:
-		case comValue.LRETURN:
-		case comValue.FRETURN:
-		case comValue.DRETURN:
-		case comValue.ARETURN:
-		case comValue.RETURN:
-		case comValue.ARRAYLENGTH:
-		case comValue.ATHROW:
-		case comValue.MONITORENTER:
-		case comValue.MONITOREXIT:
+		case NOP:
+		case ACONST_NULL:
+		case ICONST_M1:
+		case ICONST_0:
+		case ICONST_1:
+		case ICONST_2:
+		case ICONST_3:
+		case ICONST_4:
+		case ICONST_5:
+		case LCONST_0:
+		case LCONST_1:
+		case FCONST_0:
+		case FCONST_1:
+		case FCONST_2:
+		case DCONST_0:
+		case DCONST_1:
+		case ILOAD_0:
+		case ILOAD_1:
+		case ILOAD_2:
+		case ILOAD_3:
+		case LLOAD_0:
+		case LLOAD_1:
+		case LLOAD_2:
+		case LLOAD_3:
+		case FLOAD_0:
+		case FLOAD_1:
+		case FLOAD_2:
+		case FLOAD_3:
+		case DLOAD_0:
+		case DLOAD_1:
+		case DLOAD_2:
+		case DLOAD_3:
+		case ALOAD_0:
+		case ALOAD_1:
+		case ALOAD_2:
+		case ALOAD_3:
+		case IALOAD:
+		case LALOAD:
+		case FALOAD:
+		case DALOAD:
+		case AALOAD:
+		case BALOAD:
+		case CALOAD:
+		case SALOAD:
+		case ISTORE_0:
+		case ISTORE_1:
+		case ISTORE_2:
+		case ISTORE_3:
+		case LSTORE_0:
+		case LSTORE_1:
+		case LSTORE_2:
+		case LSTORE_3:
+		case FSTORE_0:
+		case FSTORE_1:
+		case FSTORE_2:
+		case FSTORE_3:
+		case DSTORE_0:
+		case DSTORE_1:
+		case DSTORE_2:
+		case DSTORE_3:
+		case ASTORE_0:
+		case ASTORE_1:
+		case ASTORE_2:
+		case ASTORE_3:
+		case IASTORE:
+		case LASTORE:
+		case FASTORE:
+		case DASTORE:
+		case AASTORE:
+		case BASTORE:
+		case CASTORE:
+		case SASTORE:
+		case POP:
+		case POP2:
+		case DUP:
+		case DUP_X1:
+		case DUP_X2:
+		case DUP2:
+		case DUP2_X1:
+		case DUP2_X2:
+		case SWAP:
+		case IADD:
+		case LADD:
+		case FADD:
+		case DADD:
+		case ISUB:
+		case LSUB:
+		case FSUB:
+		case DSUB:
+		case IMUL:
+		case LMUL:
+		case FMUL:
+		case DMUL:
+		case IDIV:
+		case LDIV:
+		case FDIV:
+		case DDIV:
+		case IREM:
+		case LREM:
+		case FREM:
+		case DREM:
+		case INEG:
+		case LENG:
+		case FNEG:
+		case DNEG:
+		case ISHL:
+		case LSHL:
+		case ISHR:
+		case LSHR:
+		case IUSHR:
+		case LUSHR:
+		case IAND:
+		case LAND:
+		case IOR:
+		case LOR:
+		case IXOR:
+		case LXOR:
+		case I2L:
+		case I2F:
+		case I2D:
+		case L2I:
+		case L2F:
+		case L2D:
+		case F2I:
+		case F2L:
+		case F2D:
+		case D2I:
+		case D2L:
+		case D2F:
+		case I2B:
+		case I2C:
+		case I2S:
+		case LCMP:
+		case FCMPL:
+		case FCMPG:
+		case DCMPL:
+		case DCMPG:
+		case IRETURN:
+		case LRETURN:
+		case FRETURN:
+		case DRETURN:
+		case ARETURN:
+		case RETURN:
+		case ARRAYLENGTH:
+		case ATHROW:
+		case MONITORENTER:
+		case MONITOREXIT:
 			//无操作数
-		case comValue.BIPUSH:
+		case BIPUSH:
 			fallthrough
-		case comValue.LDC:
+		case LDC:
 			fallthrough
-		case comValue.ILOAD:
+		case ILOAD:
 			fallthrough
-		case comValue.LLOAD:
+		case LLOAD:
 			fallthrough
-		case comValue.FLOAD:
+		case FLOAD:
 			fallthrough
-		case comValue.DLOAD:
+		case DLOAD:
 			fallthrough
-		case comValue.ALOAD:
+		case ALOAD:
 			fallthrough
-		case comValue.ISTORE:
+		case ISTORE:
 			fallthrough
-		case comValue.LSTORE:
+		case LSTORE:
 			fallthrough
-		case comValue.FSTORE:
+		case FSTORE:
 			fallthrough
-		case comValue.DSTORE:
+		case DSTORE:
 			fallthrough
-		case comValue.ASTORE:
+		case ASTORE:
 			fallthrough
-		case comValue.NEWARRAY:
+		case NEWARRAY:
 			codeOp = append(codeOp, context[i])
 			i++
 
-		case comValue.SIPUSH:
+		case SIPUSH:
 			b := [2]byte{}
-			s := (*int16)(comFunc.BytesToUnsafePointer(b[:]))
-			*s = comFunc.BytesToInt16(context[i : i+2])
+			s := (*int16)(BytesToUnsafePointer(b[:]))
+			*s = BytesToInt16(context[i : i+2])
 			codeOp = append(codeOp, b[:]...)
 			i += 2
 
-		case comValue.LDC_W:
+		case LDC_W:
 			fallthrough
-		case comValue.LDC2_W:
+		case LDC2_W:
 			fallthrough
-		case comValue.IFEQ:
+		case IFEQ:
 			fallthrough
-		case comValue.IFNE:
+		case IFNE:
 			fallthrough
-		case comValue.IFLT:
+		case IFLT:
 			fallthrough
-		case comValue.IFGE:
+		case IFGE:
 			fallthrough
-		case comValue.IFGT:
+		case IFGT:
 			fallthrough
-		case comValue.IFLE:
+		case IFLE:
 			fallthrough
-		case comValue.IF_ICMPEQ:
+		case IF_ICMPEQ:
 			fallthrough
-		case comValue.IF_ICMPNE:
+		case IF_ICMPNE:
 			fallthrough
-		case comValue.IF_ICMPLT:
+		case IF_ICMPLT:
 			fallthrough
-		case comValue.IF_ICMPGE:
+		case IF_ICMPGE:
 			fallthrough
-		case comValue.IF_ICMPGT:
+		case IF_ICMPGT:
 			fallthrough
-		case comValue.IF_ICMPLE:
+		case IF_ICMPLE:
 			fallthrough
-		case comValue.IF_ACMPEQ:
+		case IF_ACMPEQ:
 			fallthrough
-		case comValue.IF_ACMPNE:
+		case IF_ACMPNE:
 			fallthrough
-		case comValue.GOTO:
+		case GOTO:
 			fallthrough
-		case comValue.GETSTATIC:
+		case GETSTATIC:
 			fallthrough
-		case comValue.PUTSTATIC:
+		case PUTSTATIC:
 			fallthrough
-		case comValue.GETFIELD:
+		case GETFIELD:
 			fallthrough
-		case comValue.PUTFIELD:
+		case PUTFIELD:
 			fallthrough
-		case comValue.INVOKEVIRTUAL:
+		case INVOKEVIRTUAL:
 			fallthrough
-		case comValue.INVOKESPECIAL:
+		case INVOKESPECIAL:
 			fallthrough
-		case comValue.INVOKESTATIC:
+		case INVOKESTATIC:
 			fallthrough
-		case comValue.INVOKEINTERFACE:
+		case INVOKEINTERFACE:
 			fallthrough
-		case comValue.NEW:
+		case NEW:
 			fallthrough
-		case comValue.ANEWARRAY:
+		case ANEWARRAY:
 			fallthrough
-		case comValue.CHECKCAST:
+		case CHECKCAST:
 			fallthrough
-		case comValue.INSTANCEOF:
+		case INSTANCEOF:
 			fallthrough
-		case comValue.IFNULL:
+		case IFNULL:
 			fallthrough
-		case comValue.IFNONNULL:
+		case IFNONNULL:
 			b := [2]byte{}
-			s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
-			*s = comFunc.BytesToUint16(context[i : i+2])
+			s := (*uint16)(BytesToUnsafePointer(b[:]))
+			*s = BytesToUint16(context[i : i+2])
 			codeOp = append(codeOp, b[:]...)
 			i += 2
 
-		case comValue.IINC:
+		case IINC:
 			codeOp = append(codeOp, context[i], context[i+1])
 			i += 2
 
-		case comValue.TABLESWITCH:
+		case TABLESWITCH:
 			//3个填充位
 			codeOp = append(codeOp, context[i:i+3]...)
 			i += 3
 			//default
 			def := [4]byte{}
-			s := (*uint32)(comFunc.BytesToUnsafePointer(def[:]))
-			*s = comFunc.BytesToUint32(context[i : i+4])
+			s := (*uint32)(BytesToUnsafePointer(def[:]))
+			*s = BytesToUint32(context[i : i+4])
 			codeOp = append(codeOp, def[:]...)
 			i += 4
 			//low
 			low_b := [4]byte{}
-			low := (*uint32)(comFunc.BytesToUnsafePointer(low_b[:]))
-			*low = comFunc.BytesToUint32(context[i : i+4])
+			low := (*uint32)(BytesToUnsafePointer(low_b[:]))
+			*low = BytesToUint32(context[i : i+4])
 			codeOp = append(codeOp, low_b[:]...)
 			i += 4
 			//high
 			high_b := [4]byte{}
-			high := (*uint32)(comFunc.BytesToUnsafePointer(high_b[:]))
-			*high = comFunc.BytesToUint32(context[i : i+4])
+			high := (*uint32)(BytesToUnsafePointer(high_b[:]))
+			*high = BytesToUint32(context[i : i+4])
 			codeOp = append(codeOp, high_b[:]...)
 			i += 4
 			//offset
 			for j := *low; j <= *high; j++ {
 				offset_b := [4]byte{}
-				offset := (*uint32)(comFunc.BytesToUnsafePointer(offset_b[:]))
-				*offset = comFunc.BytesToUint32(context[i : i+4])
+				offset := (*uint32)(BytesToUnsafePointer(offset_b[:]))
+				*offset = BytesToUint32(context[i : i+4])
 				codeOp = append(codeOp, offset_b[:]...)
 				i += 4
 			}
 
-		case comValue.LOOKUPSWITCH:
+		case LOOKUPSWITCH:
 			//3个填充位
 			codeOp = append(codeOp, context[i:i+3]...)
 			i += 3
 			//default
 			def := [4]byte{}
-			s := (*uint32)(comFunc.BytesToUnsafePointer(def[:]))
-			*s = comFunc.BytesToUint32(context[i : i+4])
+			s := (*uint32)(BytesToUnsafePointer(def[:]))
+			*s = BytesToUint32(context[i : i+4])
 			codeOp = append(codeOp, def[:]...)
 			i += 4
 			//pair的数量
 			pairs_b := [4]byte{}
-			pairs := (*uint32)(comFunc.BytesToUnsafePointer(pairs_b[:]))
-			*pairs = comFunc.BytesToUint32(context[i : i+4])
+			pairs := (*uint32)(BytesToUnsafePointer(pairs_b[:]))
+			*pairs = BytesToUint32(context[i : i+4])
 			codeOp = append(codeOp, pairs_b[:]...)
 			i += 4
 			//各pair
 			for j := uint32(0); j <= (*pairs)*2; j++ {
 				pair_b := [4]byte{}
-				pair := (*uint32)(comFunc.BytesToUnsafePointer(pair_b[:]))
-				*pair = comFunc.BytesToUint32(context[i : i+4])
+				pair := (*uint32)(BytesToUnsafePointer(pair_b[:]))
+				*pair = BytesToUint32(context[i : i+4])
 				codeOp = append(codeOp, pair_b[:]...)
 				i += 4
 			}
-		case comValue.WIDE:
+		case WIDE:
 			op := context[i]
 			codeOp = append(codeOp, op)
 			i++
 			switch op {
-			case comValue.ILOAD:
+			case ILOAD:
 				fallthrough
-			case comValue.LLOAD:
+			case LLOAD:
 				fallthrough
-			case comValue.FLOAD:
+			case FLOAD:
 				fallthrough
-			case comValue.DLOAD:
+			case DLOAD:
 				fallthrough
-			case comValue.ALOAD:
+			case ALOAD:
 				fallthrough
-			case comValue.ISTORE:
+			case ISTORE:
 				fallthrough
-			case comValue.LSTORE:
+			case LSTORE:
 				fallthrough
-			case comValue.FSTORE:
+			case FSTORE:
 				fallthrough
-			case comValue.DSTORE:
+			case DSTORE:
 				fallthrough
-			case comValue.ASTORE:
+			case ASTORE:
 				b := [2]byte{}
-				s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
-				*s = comFunc.BytesToUint16(context[i : i+2])
+				s := (*uint16)(BytesToUnsafePointer(b[:]))
+				*s = BytesToUint16(context[i : i+2])
 				codeOp = append(codeOp, b[:]...)
 				i += 2
-			case comValue.IINC:
+			case IINC:
 				b := [2]byte{}
-				s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
-				*s = comFunc.BytesToUint16(context[i : i+2])
+				s := (*uint16)(BytesToUnsafePointer(b[:]))
+				*s = BytesToUint16(context[i : i+2])
 				codeOp = append(codeOp, b[:]...)
 				codeOp = append(codeOp, context[i+2])
 				i += 3
-			case comValue.RET:
+			case RET:
 				fmt.Println(op)
 				panic("readCode():该指令不支持（wide)")
 			default:
@@ -1164,26 +1062,26 @@ func readCode(context []byte) []byte {
 				panic("readCode():该指令不支持wide")
 			}
 
-		case comValue.MULTIANEWARRAY:
+		case MULTIANEWARRAY:
 			b := [2]byte{}
-			s := (*uint16)(comFunc.BytesToUnsafePointer(b[:]))
-			*s = comFunc.BytesToUint16(context[i : i+2])
+			s := (*uint16)(BytesToUnsafePointer(b[:]))
+			*s = BytesToUint16(context[i : i+2])
 			codeOp = append(codeOp, b[:]...)
 			codeOp = append(codeOp, context[i+2])
 			i += 3
 
-		case comValue.GOTO_W:
+		case GOTO_W:
 			b := [4]byte{}
-			s := (*uint32)(comFunc.BytesToUnsafePointer(b[:]))
-			*s = comFunc.BytesToUint32(context[i : i+4])
+			s := (*uint32)(BytesToUnsafePointer(b[:]))
+			*s = BytesToUint32(context[i : i+4])
 			codeOp = append(codeOp, b[:]...)
 			i += 4
 
-		case comValue.JSR:
+		case JSR:
 			fallthrough
-		case comValue.RET:
+		case RET:
 			fallthrough
-		case comValue.JSR_W:
+		case JSR_W:
 			fmt.Println(op)
 			panic("readCode():该指令不支持")
 		default:

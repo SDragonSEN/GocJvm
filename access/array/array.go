@@ -1,8 +1,9 @@
-package access
+package array
 
 import (
-	"comFunc"
-	"memoryControl"
+	. "access/access"
+	. "basic/com"
+	. "basic/memCtrl"
 )
 
 type ARRAY_INFO struct {
@@ -28,25 +29,25 @@ func NewArray(symbol, width, length uint32) (*ACCESS_INFO, uint32, error) {
 	//新建引用
 	access, accAdr, err := NewAccessInfo()
 	if err != nil {
-		return nil, memCtrl.INVALID_MEM, err
+		return nil, INVALID_MEM, err
 	}
 	//分配数组数据的内存
 	leng := ARRAY_INFO_SIZE + width*length
-	arrAdr, err := memCtrl.Malloc(leng, memCtrl.ARRAY_NODE)
+	arrAdr, err := Malloc(leng, ARRAY_NODE)
 	if err != nil {
-		return nil, memCtrl.INVALID_MEM, err
+		return nil, INVALID_MEM, err
 	}
 	access.DataAddr = arrAdr
 	access.TypeAddr = ArrayClassAdr
 	//数组描述符,字宽,长度赋值
-	array := (*ARRAY_INFO)(memCtrl.GetPointer(arrAdr, ARRAY_INFO_SIZE))
+	array := (*ARRAY_INFO)(GetPointer(arrAdr, ARRAY_INFO_SIZE))
 	array.ArrayType = symbol
 	array.Width = width
 	array.Length = length
 
 	//数组数据刷成0
 	for i := arrAdr + ARRAY_INFO_SIZE; i < arrAdr+ARRAY_INFO_SIZE+width*length; i++ {
-		memCtrl.Memory[i] = 0
+		Memory[i] = 0
 	}
 	return access, accAdr, nil
 }
@@ -59,6 +60,6 @@ func NewArray(symbol, width, length uint32) (*ACCESS_INFO, uint32, error) {
 ******************************************************************/
 func GetArrayInfo(accAdr uint32) (ARRAY_INFO, []byte) {
 	data := GetData(accAdr)
-	arr := (*ARRAY_INFO)(comFunc.BytesToUnsafePointer(data[0:ARRAY_INFO_SIZE]))
+	arr := (*ARRAY_INFO)(BytesToUnsafePointer(data[0:ARRAY_INFO_SIZE]))
 	return *arr, data[ARRAY_INFO_SIZE : ARRAY_INFO_SIZE+arr.Length*uint32(arr.Width)]
 }

@@ -1,8 +1,8 @@
-package classAnaly
+package classInterface
 
 import (
-	"comFunc"
-	"memoryControl"
+	. "basic/com"
+	. "basic/memCtrl"
 )
 
 type FiledInfo struct {
@@ -30,13 +30,13 @@ func GetMethodInfo(constPool []byte, index uint32) MethodInfo {
 	if index > uint32(len(constPool)/4) {
 		panic("GetStaticFiledInfo()error1")
 	}
-	constItem := (*CONSTANT_TYPE_16)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
+	constItem := (*CONSTANT_TYPE_16)(BytesToUnsafePointer(constPool[(index-1)*4:]))
 	//class类型在常量池中的位置
-	classIndex := GetUint32FromConstPool(constPool, uint32(constItem.param1))
+	classIndex := GetUint32FromConstPool(constPool, uint32(constItem.Param1))
 	//class的名字在符号表里的位置
 	methodInfo.ClassName = GetUint32FromConstPool(constPool, classIndex)
 	//Name和Type在符号表里的位置
-	methodInfo.MethodName, methodInfo.MethodDesp = GetNameAndType(constPool, uint32(constItem.param2))
+	methodInfo.MethodName, methodInfo.MethodDesp = GetNameAndType(constPool, uint32(constItem.Param2))
 	return methodInfo
 }
 
@@ -54,13 +54,13 @@ func GetFiledInfo(constPool []byte, index uint32) FiledInfo {
 	if index > uint32(len(constPool)/4) {
 		panic("GetStaticFiledInfo()error1")
 	}
-	constItem := (*CONSTANT_TYPE_16)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
+	constItem := (*CONSTANT_TYPE_16)(BytesToUnsafePointer(constPool[(index-1)*4:]))
 	//class类型在常量池中的位置
-	classIndex := GetUint32FromConstPool(constPool, uint32(constItem.param1))
+	classIndex := GetUint32FromConstPool(constPool, uint32(constItem.Param1))
 	//class的名字在符号表里的位置
 	filedInfo.ClassName = GetUint32FromConstPool(constPool, classIndex)
 	//Name和Type在符号表里的位置
-	filedInfo.FiledName, filedInfo.FiledType = GetNameAndType(constPool, uint32(constItem.param2))
+	filedInfo.FiledName, filedInfo.FiledType = GetNameAndType(constPool, uint32(constItem.Param2))
 	return filedInfo
 }
 
@@ -78,9 +78,9 @@ func GetNameAndType(constPool []byte, index uint32) (uint32, uint32) {
 	if index > uint32(len(constPool)/4) {
 		panic("GetNameAndType()error1")
 	}
-	constItem := (*CONSTANT_TYPE_16)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
+	constItem := (*CONSTANT_TYPE_16)(BytesToUnsafePointer(constPool[(index-1)*4:]))
 
-	return GetUint32FromConstPool(constPool, uint32(constItem.param1)), GetUint32FromConstPool(constPool, uint32(constItem.param2))
+	return GetUint32FromConstPool(constPool, uint32(constItem.Param1)), GetUint32FromConstPool(constPool, uint32(constItem.Param2))
 }
 
 /******************************************************************
@@ -89,9 +89,9 @@ func GetNameAndType(constPool []byte, index uint32) (uint32, uint32) {
     返回值:1、常量池切片
 ******************************************************************/
 func GetConstantPoolSlice(classAdr uint32) []byte {
-	classInfo := (*CLASS_INFO)(memCtrl.GetPointer(classAdr, CLASS_INFO_SIZE))
+	classInfo := (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
 	constPoolAdr := classAdr + CLASS_INFO_SIZE
-	return memCtrl.Memory[constPoolAdr : constPoolAdr+classInfo.ConstNum*4]
+	return Memory[constPoolAdr : constPoolAdr+classInfo.ConstNum*4]
 }
 
 /******************************************************************
@@ -108,8 +108,8 @@ func GetClassNameFromConstPool(constPool []byte, index uint32) uint32 {
 	if index > uint32(len(constPool)/4) {
 		panic("GetUtf8FromConstPool() 2")
 	}
-	constItem := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
-	return GetUtf8FromConstPool(constPool, constItem.param)
+	constItem := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(constPool[(index-1)*4:]))
+	return GetUtf8FromConstPool(constPool, constItem.Param)
 }
 
 /******************************************************************
@@ -127,8 +127,8 @@ func GetUtf8FromConstPool(constPool []byte, index uint32) uint32 {
 	if index > uint32(len(constPool)/4) {
 		panic("GetUtf8FromConstPool() 2")
 	}
-	constItem := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
-	return constItem.param
+	constItem := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(constPool[(index-1)*4:]))
+	return constItem.Param
 }
 
 /******************************************************************
@@ -146,8 +146,8 @@ func GetUint32FromConstPool(constPool []byte, index uint32) uint32 {
 	if index > uint32(len(constPool)/4) {
 		panic("GetUint32FromConstPool() 2")
 	}
-	constItem := (*CONSTANT_TYPE_32)(comFunc.BytesToUnsafePointer(constPool[(index-1)*4:]))
-	return constItem.param
+	constItem := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(constPool[(index-1)*4:]))
+	return constItem.Param
 }
 
 /******************************************************************

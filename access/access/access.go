@@ -3,7 +3,7 @@ package access
 import (
 	"errors"
 
-	"memoryControl"
+	. "basic/memCtrl"
 )
 
 type ACCESS_INFO struct {
@@ -14,7 +14,7 @@ type ACCESS_INFO struct {
 
 const ACCESS_INFO_SIZE = 3 * 4
 
-var AccHeaderAdr uint32 = memCtrl.INVALID_MEM
+var AccHeaderAdr uint32 = INVALID_MEM
 
 /******************************************************************
     功能:新建引用
@@ -24,30 +24,30 @@ var AccHeaderAdr uint32 = memCtrl.INVALID_MEM
 		  3、error
 ******************************************************************/
 func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
-	if AccHeaderAdr == memCtrl.INVALID_MEM {
+	if AccHeaderAdr == INVALID_MEM {
 		//初始化类表头结点
-		AccHeaderAdr, _ = memCtrl.Malloc(ACCESS_INFO_SIZE, memCtrl.ACCESS_NODE)
-		accHeader := (*ACCESS_INFO)(memCtrl.GetPointer(AccHeaderAdr, ACCESS_INFO_SIZE))
-		accHeader.DataAddr = memCtrl.INVALID_MEM
-		accHeader.NextAddr = memCtrl.INVALID_MEM
-		accHeader.TypeAddr = memCtrl.INVALID_MEM
+		AccHeaderAdr, _ = Malloc(ACCESS_INFO_SIZE, ACCESS_NODE)
+		accHeader := (*ACCESS_INFO)(GetPointer(AccHeaderAdr, ACCESS_INFO_SIZE))
+		accHeader.DataAddr = INVALID_MEM
+		accHeader.NextAddr = INVALID_MEM
+		accHeader.TypeAddr = INVALID_MEM
 
 		return accHeader, AccHeaderAdr, nil
 	}
 	curAddr := AccHeaderAdr
 	var curAccess *ACCESS_INFO
-	for curAddr != memCtrl.INVALID_MEM {
-		curAccess = (*ACCESS_INFO)(memCtrl.GetPointer(curAddr, ACCESS_INFO_SIZE))
+	for curAddr != INVALID_MEM {
+		curAccess = (*ACCESS_INFO)(GetPointer(curAddr, ACCESS_INFO_SIZE))
 
 		curAddr = curAccess.NextAddr
 	}
-	newAccAdr, err := memCtrl.Malloc(ACCESS_INFO_SIZE, memCtrl.ACCESS_NODE)
+	newAccAdr, err := Malloc(ACCESS_INFO_SIZE, ACCESS_NODE)
 	if err != nil {
-		return nil, memCtrl.INVALID_MEM, errors.New("NewAccessInfo():内存不足")
+		return nil, INVALID_MEM, errors.New("NewAccessInfo():内存不足")
 	}
 	curAccess.NextAddr = newAccAdr
-	newAcc := (*ACCESS_INFO)(memCtrl.GetPointer(newAccAdr, ACCESS_INFO_SIZE))
-	newAcc.NextAddr = memCtrl.INVALID_MEM
+	newAcc := (*ACCESS_INFO)(GetPointer(newAccAdr, ACCESS_INFO_SIZE))
+	newAcc.NextAddr = INVALID_MEM
 	return newAcc, newAccAdr, nil
 }
 
@@ -57,8 +57,8 @@ func NewAccessInfo() (*ACCESS_INFO, uint32, error) {
     返回值:1、数据切片
 ******************************************************************/
 func GetData(accAdr uint32) []byte {
-	acc := (*ACCESS_INFO)(memCtrl.GetPointer(accAdr, ACCESS_INFO_SIZE))
-	return memCtrl.Memory[acc.DataAddr:]
+	acc := (*ACCESS_INFO)(GetPointer(accAdr, ACCESS_INFO_SIZE))
+	return Memory[acc.DataAddr:]
 }
 
 /******************************************************************
@@ -67,7 +67,7 @@ func GetData(accAdr uint32) []byte {
     返回值:1、数据切片
 ******************************************************************/
 func GetClassInfo(accAdr uint32) uint32 {
-	acc := (*ACCESS_INFO)(memCtrl.GetPointer(accAdr, ACCESS_INFO_SIZE))
+	acc := (*ACCESS_INFO)(GetPointer(accAdr, ACCESS_INFO_SIZE))
 	return acc.TypeAddr
 }
 
@@ -80,8 +80,8 @@ func GetClassInfo(accAdr uint32) uint32 {
 func ModifyTypeAddr(src, dest uint32) {
 	curAddr := AccHeaderAdr
 	var curAccess *ACCESS_INFO
-	for curAddr != memCtrl.INVALID_MEM {
-		curAccess = (*ACCESS_INFO)(memCtrl.GetPointer(curAddr, ACCESS_INFO_SIZE))
+	for curAddr != INVALID_MEM {
+		curAccess = (*ACCESS_INFO)(GetPointer(curAddr, ACCESS_INFO_SIZE))
 		if curAccess.TypeAddr == src {
 			curAccess.TypeAddr = dest
 		}

@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"unicode/utf16"
 
-	"accessOp"
-	"classAnaly"
-	"comFunc"
-	"comValue"
-	"memoryControl"
+	. "access/access"
+	. "access/array"
+	. "access/string"
+	. "basic/com"
+	. "basic/memCtrl"
+	. "basic/symbol"
+	. "class/classInterface"
+	. "class/classParse"
+	. "class/classTable"
 )
 
 type METHOD_STACK struct {
@@ -39,14 +43,14 @@ const METHOD_FRAME_SIZE = 7 * 4
 	注:函数栈大小默认为100
 ******************************************************************/
 func NewMethodStack() *METHOD_STACK {
-	adr, err := memCtrl.Malloc(METHOD_STACK_SIZE, memCtrl.METHOD_STACK_NODE)
+	adr, err := Malloc(METHOD_STACK_SIZE, METHOD_STACK_NODE)
 	if err != nil {
 		panic("NewMethodStack()")
 	}
-	methodStack := (*METHOD_STACK)(memCtrl.GetPointer(adr, METHOD_STACK_SIZE))
+	methodStack := (*METHOD_STACK)(GetPointer(adr, METHOD_STACK_SIZE))
 	methodStack.MaxStackSize = 100 //目前默认100
 	methodStack.StackNum = 0
-	methodStack.TopFrame = memCtrl.INVALID_MEM
+	methodStack.TopFrame = INVALID_MEM
 	return methodStack
 }
 
@@ -57,11 +61,11 @@ func NewMethodStack() *METHOD_STACK {
 	      2、地址
 ******************************************************************/
 func (self *METHOD_STACK) PushFrame(varSize, opStackSize, clazAdr, returnPc uint32) *METHOD_FRAME {
-	adr, err := memCtrl.Malloc(METHOD_FRAME_SIZE+(varSize+opStackSize)*4, memCtrl.METHOD_FRAME_NODE)
+	adr, err := Malloc(METHOD_FRAME_SIZE+(varSize+opStackSize)*4, METHOD_FRAME_NODE)
 	if err != nil {
 		panic("PushFrame()")
 	}
-	methodFrame := (*METHOD_FRAME)(memCtrl.GetPointer(adr, METHOD_FRAME_SIZE))
+	methodFrame := (*METHOD_FRAME)(GetPointer(adr, METHOD_FRAME_SIZE))
 	methodFrame.VarSize = varSize
 	methodFrame.OpStackSize = opStackSize
 	methodFrame.Claz = clazAdr
@@ -88,16 +92,16 @@ func (self *METHOD_STACK) PopFrame() *METHOD_FRAME {
 		panic("PopFrame(): stack is empty!")
 	}
 	curFrameAdr := self.TopFrame
-	curFrame := (*METHOD_FRAME)(memCtrl.GetPointer(curFrameAdr, METHOD_FRAME_SIZE))
+	curFrame := (*METHOD_FRAME)(GetPointer(curFrameAdr, METHOD_FRAME_SIZE))
 
 	self.TopFrame = curFrame.LowFrame
 	self.PC = curFrame.ReturnPc
 	self.StackNum--
-	memCtrl.MemFree(curFrameAdr)
+	MemFree(curFrameAdr)
 	if self.StackNum == 0 {
 		return nil
 	}
-	return (*METHOD_FRAME)(memCtrl.GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
+	return (*METHOD_FRAME)(GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
 }
 
 /******************************************************************
@@ -110,7 +114,7 @@ func (self *METHOD_FRAME) SetVar(index, value uint32) {
 	if index >= self.VarSize {
 		panic("SetVar()方法变量异常")
 	}
-	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(index*4), 4))
+	p := (*uint32)(GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(index*4), 4))
 	*p = value
 }
 
@@ -123,7 +127,7 @@ func (self *METHOD_FRAME) GetVar(index uint32) uint32 {
 	if index >= self.VarSize {
 		panic("GetVar()方法变量异常")
 	}
-	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(index*4), 4))
+	p := (*uint32)(GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(index*4), 4))
 	return *p
 }
 
@@ -136,7 +140,7 @@ func (self *METHOD_FRAME) Push(value uint32) {
 	if self.CurOpStackIndex >= self.OpStackSize {
 		panic("Push()操作数栈异常")
 	}
-	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex)*4, 4))
+	p := (*uint32)(GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex)*4, 4))
 	*p = value
 	self.CurOpStackIndex++
 }
@@ -150,7 +154,7 @@ func (self *METHOD_FRAME) Pop() uint32 {
 	if self.CurOpStackIndex == 0 {
 		panic("Push()操作数栈异常")
 	}
-	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex-1)*4, 4))
+	p := (*uint32)(GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex-1)*4, 4))
 	self.CurOpStackIndex--
 	return *p
 }
@@ -164,7 +168,7 @@ func (self *METHOD_FRAME) Peek() uint32 {
 	if self.CurOpStackIndex == 0 {
 		panic("Push()操作数栈异常")
 	}
-	p := (*uint32)(memCtrl.GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex-1)*4, 4))
+	p := (*uint32)(GetPointer(self.LocalAdr+METHOD_FRAME_SIZE+(self.VarSize+self.CurOpStackIndex-1)*4, 4))
 	return *p
 }
 
@@ -175,142 +179,148 @@ func (self *METHOD_FRAME) Peek() uint32 {
 ******************************************************************/
 func (self *METHOD_STACK) Excute() {
 	i := 0
-	frame := (*METHOD_FRAME)(memCtrl.GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
+	frame := (*METHOD_FRAME)(GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
 	for {
-		self.Log(frame)
-		fmt.Println(comValue.Format(memCtrl.Memory[self.PC]))
-		fmt.Println(self.PC)
-		switch memCtrl.Memory[self.PC] {
-		case comValue.NOP:
+		//self.Log(frame)
+		//fmt.Println(Format(Memory[self.PC]))
+		//fmt.Println(self.PC)
+		switch Memory[self.PC] {
+		case NOP:
 			if i > 20 {
-				return
+				panic("NOP")
 			}
 			i++
 			self.PC++
-		case comValue.ICONST_M1:
+		case ICONST_M1:
 			self.IConst(frame, -1)
-		case comValue.ICONST_0:
+		case ICONST_0:
 			self.IConst(frame, 0)
-		case comValue.ICONST_1:
+		case ICONST_1:
 			self.IConst(frame, 1)
-		case comValue.ICONST_2:
+		case ICONST_2:
 			self.IConst(frame, 2)
-		case comValue.ICONST_3:
+		case ICONST_3:
 			self.IConst(frame, 3)
-		case comValue.ICONST_4:
+		case ICONST_4:
 			self.IConst(frame, 4)
-		case comValue.ICONST_5:
+		case ICONST_5:
 			self.IConst(frame, 5)
-		case comValue.BIPUSH:
+		case BIPUSH:
 			self.BIPush(frame)
-		case comValue.LDC:
+		case LDC:
 			self.Ldc(frame)
-		case comValue.ILOAD:
+		case ILOAD:
 			self.ILoad(frame)
-		case comValue.ALOAD:
+		case ALOAD:
 			self.ILoad(frame)
-		case comValue.ILOAD_0:
+		case ILOAD_0:
 			self.Load32(frame, 0)
-		case comValue.ILOAD_1:
+		case ILOAD_1:
 			self.Load32(frame, 1)
-		case comValue.ILOAD_2:
+		case ILOAD_2:
 			self.Load32(frame, 2)
-		case comValue.ILOAD_3:
+		case ILOAD_3:
 			self.Load32(frame, 3)
-		case comValue.ALOAD_0:
+		case FLOAD_0:
 			self.Load32(frame, 0)
-		case comValue.ALOAD_1:
+		case ALOAD_0:
+			self.Load32(frame, 0)
+		case ALOAD_1:
 			self.Load32(frame, 1)
-		case comValue.ALOAD_2:
+		case ALOAD_2:
 			self.Load32(frame, 2)
-		case comValue.IALOAD:
+		case IALOAD:
 			self.IALoad(frame)
-		case comValue.BALOAD:
+		case BALOAD:
 			self.BALoad(frame)
-		case comValue.ASTORE:
+		case ASTORE:
 			self.Store32Byte(frame)
-		case comValue.ISTORE:
+		case ISTORE:
 			self.IStore(frame)
-		case comValue.ISTORE_1:
+		case ISTORE_1:
 			self.Store32(frame, 1)
-		case comValue.ISTORE_2:
+		case ISTORE_2:
 			self.Store32(frame, 2)
-		case comValue.ISTORE_3:
+		case ISTORE_3:
 			self.Store32(frame, 3)
-		case comValue.ASTORE_1:
+		case ASTORE_1:
 			self.Store32(frame, 1)
-		case comValue.ASTORE_2:
+		case ASTORE_2:
 			self.Store32(frame, 2)
-		case comValue.IASTORE:
+		case IASTORE:
 			self.IAStore(frame)
-		case comValue.BASTORE:
+		case BASTORE:
 			self.BAStore(frame)
-		case comValue.POP:
+		case POP:
 			frame.Pop()
 			self.PC++
-		case comValue.DUP:
+		case DUP:
 			self.Dup(frame)
-		case comValue.IADD:
+		case IADD:
 			self.Iadd(frame)
-		case comValue.ISUB:
+		case ISUB:
 			self.Isub(frame)
-		case comValue.IMUL:
+		case IMUL:
 			self.Imul(frame)
-		case comValue.IDIV:
+		case IDIV:
 			self.Idiv(frame)
-		case comValue.IREM:
+		case IREM:
 			self.Irem(frame)
-		case comValue.INEG:
+		case INEG:
 			self.Ineg(frame)
-		case comValue.IFGE:
+		case IFGE:
 			self.Ifge(frame)
-		case comValue.IFNE:
+		case IFNE:
 			self.Ifne(frame)
-		case comValue.IF_ICMPNE:
+		case IF_ICMPNE:
 			self.Icmpne(frame)
-		case comValue.IF_ICMPLT:
+		case IF_ICMPLT:
 			self.Icmplt(frame)
-		case comValue.IF_ICMPGT:
+		case IF_ICMPGT:
 			self.Icmpgt(frame)
-		case comValue.IF_ICMPLE:
+		case IF_ICMPLE:
 			self.Icmple(frame)
 
-		case comValue.IRETURN:
+		case IRETURN:
 			frame = self.IReturn(frame)
 			if frame == nil {
 				goto label
 			}
-		case comValue.GOTO:
+		case GOTO:
 			self.Goto(frame)
-		case comValue.GETSTATIC:
+		case GETSTATIC:
 			self.GetStatic(frame)
-		case comValue.GETFIELD:
+		case PUTSTATIC:
+			self.PutStatic(frame)
+		case GETFIELD:
 			self.GetFiled(frame)
-		case comValue.PUTFIELD:
+		case PUTFIELD:
 			self.PutFiled(frame)
-		case comValue.INVOKEVIRTUAL:
+		case INVOKEVIRTUAL:
 			newFrame := self.InvokeVirtual(frame)
 			if newFrame != nil {
 				frame = newFrame
 			}
-		case comValue.INVOKESTATIC:
+		case INVOKESTATIC:
 			frame = self.InvokeStatic(frame)
-		case comValue.INVOKESPECIAL:
+		case INVOKESPECIAL:
 			frame = self.InvokeSpecial(frame)
-		case comValue.RETURN:
+		case RETURN:
 			frame = self.PopFrame()
 			if frame == nil {
 				goto label
 			}
-		case comValue.NEW:
+		case NEW:
 			self.New(frame)
-		case comValue.ARRAYLENGTH:
+		case ARRAYLENGTH:
 			self.ArrayLength(frame)
-		case comValue.NEWARRAY:
+		case NEWARRAY:
 			self.NewArray(frame)
+		case ANEWARRAY:
+			self.ANewArray(frame)
 		default:
-			fmt.Printf("memCtrl.Memory[self.PC]:%x ", memCtrl.Memory[self.PC])
-			fmt.Println(comValue.Format(memCtrl.Memory[self.PC]))
+			fmt.Printf("Memory[self.PC]:%x ", Memory[self.PC])
+			panic(Format(Memory[self.PC]))
 			goto label
 		}
 	}
@@ -324,28 +334,29 @@ label:
 ******************************************************************/
 func (self *METHOD_STACK) GetStatic(frame *METHOD_FRAME) {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
-	filedInfo := classAnaly.GetFiledInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
-	//fmt.Println(string(memCtrl.GetSymbol(filedInfo.ClassName)), string(memCtrl.GetSymbol(filedInfo.FiledName)), string(memCtrl.GetSymbol(filedInfo.FiledType)))
+	p := (*uint16)(GetPointer(self.PC, 2))
+	filedInfo := GetFiledInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
+	//fmt.Println(string(GetSymbol(filedInfo.ClassName)), string(GetSymbol(filedInfo.FiledName)), string(GetSymbol(filedInfo.FiledType)))
 	self.PC += 2
 
 	var classAdr uint32
-	classAdr = memCtrl.GetClassMemAddr(filedInfo.ClassName)
+	classAdr = GetClassMemAddr(filedInfo.ClassName)
 	//如果获取不到，则说明不在内存中，需要去加载
-	if classAdr == memCtrl.INVALID_MEM {
+	if classAdr == INVALID_MEM {
 		//获取类名(string)
-		className := string(memCtrl.GetSymbol(filedInfo.ClassName))
-		classInfo, err := classAnaly.LoadClass(className)
+		className := string(GetSymbol(filedInfo.ClassName))
+		classInfo, err := LoadClass(className)
 		if err != nil {
 			panic("GetStatic()")
 		}
 		classAdr = classInfo.LocalAdr
+		CInit(classInfo.LocalAdr)
 	}
 
-	classInfo := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
+	classInfo := (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
 	//判断是否是long或double型
-	if filedInfo.FiledType == memCtrl.SYM_J ||
-		filedInfo.FiledType == memCtrl.SYM_D {
+	if filedInfo.FiledType == SYM_J ||
+		filedInfo.FiledType == SYM_D {
 		v := classInfo.GetStaticData64(filedInfo.FiledName, filedInfo.FiledType)
 		frame.Push(v[0])
 		frame.Push(v[1])
@@ -356,26 +367,65 @@ func (self *METHOD_STACK) GetStatic(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
+    功能:putstatic指令
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) PutStatic(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint16)(GetPointer(self.PC, 2))
+	filedInfo := GetFiledInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
+	//fmt.Println(string(GetSymbol(filedInfo.ClassName)), string(GetSymbol(filedInfo.FiledName)), string(GetSymbol(filedInfo.FiledType)))
+	self.PC += 2
+
+	var classAdr uint32
+	classAdr = GetClassMemAddr(filedInfo.ClassName)
+	//如果获取不到，则说明不在内存中，需要去加载
+	if classAdr == INVALID_MEM {
+		//获取类名(string)
+		className := string(GetSymbol(filedInfo.ClassName))
+		classInfo, err := LoadClass(className)
+		if err != nil {
+			panic("PutStatic()")
+		}
+		classAdr = classInfo.LocalAdr
+		CInit(classInfo.LocalAdr)
+	}
+
+	classInfo := (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
+	//判断是否是long或double型
+	if filedInfo.FiledType == SYM_J ||
+		filedInfo.FiledType == SYM_D {
+		v1 := frame.Pop()
+		v0 := frame.Pop()
+		classInfo.PutStaticData64(filedInfo.FiledName, filedInfo.FiledType, v0, v1)
+	} else {
+		v := frame.Pop()
+		classInfo.PutStaticData32(filedInfo.FiledName, filedInfo.FiledType, v)
+	}
+}
+
+/******************************************************************
     功能:GetFiled
 	入参:1、*METHOD_FRAME
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) GetFiled(frame *METHOD_FRAME) {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
-	filedInfo := classAnaly.GetFiledInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
-	//	fmt.Println(string(memCtrl.GetSymbol(filedInfo.FiledName)))
+	p := (*uint16)(GetPointer(self.PC, 2))
+	filedInfo := GetFiledInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
+	//	fmt.Println(string(GetSymbol(filedInfo.FiledName)))
 	self.PC += 2
 	accessAdr := frame.Pop()
-	this := (*access.ACCESS_INFO)(memCtrl.GetPointer(accessAdr, access.ACCESS_INFO_SIZE))
-	thisClass := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(this.TypeAddr, classAnaly.CLASS_INFO_SIZE))
+	this := (*ACCESS_INFO)(GetPointer(accessAdr, ACCESS_INFO_SIZE))
+	thisClass := (*CLASS_INFO)(GetPointer(this.TypeAddr, CLASS_INFO_SIZE))
 	index := thisClass.GetUnstaticDataIndex(filedInfo.FiledName, filedInfo.FiledType)
-	data := access.GetData(accessAdr)
-	v0 := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4 : index*4+4]))
+	data := GetData(accessAdr)
+	v0 := (*uint32)(BytesToUnsafePointer(data[index*4 : index*4+4]))
 	frame.Push(*v0)
-	if filedInfo.FiledType == memCtrl.SYM_J ||
-		filedInfo.FiledType == memCtrl.SYM_D {
-		v1 := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4+4 : index*4+8]))
+	if filedInfo.FiledType == SYM_J ||
+		filedInfo.FiledType == SYM_D {
+		v1 := (*uint32)(BytesToUnsafePointer(data[index*4+4 : index*4+8]))
 		frame.Push(*v1)
 	}
 }
@@ -387,30 +437,30 @@ func (self *METHOD_STACK) GetFiled(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) PutFiled(frame *METHOD_FRAME) {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
-	filedInfo := classAnaly.GetFiledInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	p := (*uint16)(GetPointer(self.PC, 2))
+	filedInfo := GetFiledInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
 	self.PC += 2
-	if filedInfo.FiledType == memCtrl.SYM_J ||
-		filedInfo.FiledType == memCtrl.SYM_D {
+	if filedInfo.FiledType == SYM_J ||
+		filedInfo.FiledType == SYM_D {
 		v1 := frame.Pop()
 		v0 := frame.Pop()
 		accessAdr := frame.Pop()
-		this := (*access.ACCESS_INFO)(memCtrl.GetPointer(accessAdr, access.ACCESS_INFO_SIZE))
-		thisClass := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(this.TypeAddr, classAnaly.CLASS_INFO_SIZE))
+		this := (*ACCESS_INFO)(GetPointer(accessAdr, ACCESS_INFO_SIZE))
+		thisClass := (*CLASS_INFO)(GetPointer(this.TypeAddr, CLASS_INFO_SIZE))
 		index := thisClass.GetUnstaticDataIndex(filedInfo.FiledName, filedInfo.FiledType)
-		data := access.GetData(accessAdr)
-		p0 := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4 : index*4+4]))
+		data := GetData(accessAdr)
+		p0 := (*uint32)(BytesToUnsafePointer(data[index*4 : index*4+4]))
 		*p0 = v0
-		p1 := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4+4 : index*4+8]))
+		p1 := (*uint32)(BytesToUnsafePointer(data[index*4+4 : index*4+8]))
 		*p1 = v1
 	} else {
 		v := frame.Pop()
 		accessAdr := frame.Pop()
-		this := (*access.ACCESS_INFO)(memCtrl.GetPointer(accessAdr, access.ACCESS_INFO_SIZE))
-		thisClass := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(this.TypeAddr, classAnaly.CLASS_INFO_SIZE))
+		this := (*ACCESS_INFO)(GetPointer(accessAdr, ACCESS_INFO_SIZE))
+		thisClass := (*CLASS_INFO)(GetPointer(this.TypeAddr, CLASS_INFO_SIZE))
 		index := thisClass.GetUnstaticDataIndex(filedInfo.FiledName, filedInfo.FiledType)
-		data := access.GetData(accessAdr)
-		p := (*uint32)(comFunc.BytesToUnsafePointer(data[index*4 : index*4+4]))
+		data := GetData(accessAdr)
+		p := (*uint32)(BytesToUnsafePointer(data[index*4 : index*4+4]))
 		*p = v
 	}
 }
@@ -422,7 +472,7 @@ func (self *METHOD_STACK) PutFiled(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) BIPush(frame *METHOD_FRAME) {
 	self.PC++
-	v := (*int8)(memCtrl.GetPointer(self.PC, 1))
+	v := (*int8)(GetPointer(self.PC, 1))
 	self.PC++
 	frame.Push(uint32(*v))
 }
@@ -434,7 +484,7 @@ func (self *METHOD_STACK) BIPush(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) Ldc(frame *METHOD_FRAME) {
 	self.PC++
-	v := classAnaly.GetStringFromConstPool(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(memCtrl.Memory[self.PC]))
+	v := GetStringFromConstPool(GetConstantPoolSlice(frame.Claz), uint32(Memory[self.PC]))
 	frame.Push(v)
 	self.PC++
 }
@@ -446,14 +496,14 @@ func (self *METHOD_STACK) Ldc(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) *METHOD_FRAME {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	p := (*uint16)(GetPointer(self.PC, 2))
 	self.PC += 2
-	methodRef := classAnaly.GetMethodInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	methodRef := GetMethodInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
 	if StubInvokeFunc(frame, methodRef) {
 		return nil
 	}
 
-	num := CalParaSize(string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	num := CalParaSize(string(GetSymbol(methodRef.MethodDesp)))
 	param := make([]uint32, num)
 	//将上一个栈帧中的值弹出，保存到新的栈帧中的局部变量中
 	for i := num; i > 0; i-- {
@@ -461,11 +511,11 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) *METHOD_FRAME {
 	}
 	//获取this中的类
 	this := frame.Pop()
-	classInfo := (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(access.GetClassInfo(this), classAnaly.CLASS_INFO_SIZE))
+	classInfo := (*CLASS_INFO)(GetPointer(GetClassInfo(this), CLASS_INFO_SIZE))
 
-	fmt.Println(string(memCtrl.GetSymbol(methodRef.ClassName)),
-		string(memCtrl.GetSymbol(methodRef.MethodName)),
-		string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	fmt.Println(string(GetSymbol(methodRef.ClassName)),
+		string(GetSymbol(methodRef.MethodName)),
+		string(GetSymbol(methodRef.MethodDesp)))
 
 	if StubInvokeFunc(frame, methodRef) {
 		return nil
@@ -473,18 +523,18 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) *METHOD_FRAME {
 
 	//查找方法
 	methodInfo, methodCLass, codeAdr := classInfo.FindMethodEx(methodRef.MethodName, methodRef.MethodDesp)
-	if methodInfo == nil || codeAdr == memCtrl.INVALID_MEM {
+	if methodInfo == nil || codeAdr == INVALID_MEM {
 		fmt.Println(methodInfo, codeAdr)
-		fmt.Println(string(memCtrl.GetSymbol(methodRef.ClassName)),
-			string(memCtrl.GetSymbol(methodRef.MethodName)),
-			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+		fmt.Println(string(GetSymbol(methodRef.ClassName)),
+			string(GetSymbol(methodRef.MethodName)),
+			string(GetSymbol(methodRef.MethodDesp)))
 		panic("InvokeVirtual()6")
 	}
 
-	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
+	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
 	//创建方法栈
 	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, methodCLass.LocalAdr, self.PC)
-	self.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
+	self.PC = codeAdr + CODE_ATTRI_SIZE
 	newFrame.SetVar(0, this)
 	for i, k := range param {
 		newFrame.SetVar(uint32(i+1), k)
@@ -500,43 +550,44 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) *METHOD_FRAME {
 ******************************************************************/
 func (self *METHOD_STACK) InvokeStatic(frame *METHOD_FRAME) *METHOD_FRAME {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	p := (*uint16)(GetPointer(self.PC, 2))
 	self.PC += 2
 	//获取方法描述
-	methodRef := classAnaly.GetMethodInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	methodRef := GetMethodInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
 
 	//获取方法中的类
-	var classInfo *classAnaly.CLASS_INFO
+	var classInfo *CLASS_INFO
 	var err error
-	classAdr := memCtrl.GetClassMemAddr(methodRef.ClassName)
-	if classAdr == memCtrl.INVALID_MEM {
-		classInfo, err = classAnaly.LoadClass(string(memCtrl.GetSymbol(methodRef.ClassName)))
+	classAdr := GetClassMemAddr(methodRef.ClassName)
+	if classAdr == INVALID_MEM {
+		classInfo, err = LoadClass(string(GetSymbol(methodRef.ClassName)))
 		if err != nil {
 			panic("InvokeSpecial()")
 		}
+		CInit(classInfo.LocalAdr)
 	} else {
-		classInfo = (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
+		classInfo = (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
 	}
 	//查找方法
 	methodInfo, codeAdr := classInfo.FindMethod(methodRef.MethodName, methodRef.MethodDesp)
-	if methodInfo == nil || codeAdr == memCtrl.INVALID_MEM {
-		fmt.Println(methodInfo, codeAdr)
-		fmt.Println(string(memCtrl.GetSymbol(classInfo.ClassName)),
-			string(memCtrl.GetSymbol(methodRef.MethodName)),
-			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
-		panic("InvokeSpecial()6")
-	}
-	fmt.Println(string(memCtrl.GetSymbol(methodRef.ClassName)),
-		string(memCtrl.GetSymbol(methodRef.MethodName)),
-		string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	if methodInfo == nil || codeAdr == INVALID_MEM {
+		fmt.Println("未实现的本地方法", string(GetSymbol(classInfo.ClassName)),
+			string(GetSymbol(methodRef.MethodName)),
+			string(GetSymbol(methodRef.MethodDesp)))
 
-	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
+		return (*METHOD_FRAME)(GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
+	}
+	fmt.Println(string(GetSymbol(methodRef.ClassName)),
+		string(GetSymbol(methodRef.MethodName)),
+		string(GetSymbol(methodRef.MethodDesp)))
+
+	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
 	//创建方法栈
 	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, classInfo.LocalAdr, self.PC)
-	self.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
+	self.PC = codeAdr + CODE_ATTRI_SIZE
 
 	//计算需要弹出的参数个数
-	num := CalParaSize(string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	num := CalParaSize(string(GetSymbol(methodRef.MethodDesp)))
 
 	//将上一个栈帧中的值弹出，保存到新的栈帧中的局部变量中
 	for i := num; i > 0; i-- {
@@ -553,39 +604,40 @@ func (self *METHOD_STACK) InvokeStatic(frame *METHOD_FRAME) *METHOD_FRAME {
 ******************************************************************/
 func (self *METHOD_STACK) InvokeSpecial(frame *METHOD_FRAME) *METHOD_FRAME {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	p := (*uint16)(GetPointer(self.PC, 2))
 	self.PC += 2
 	//获取方法描述
-	methodRef := classAnaly.GetMethodInfo(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	methodRef := GetMethodInfo(GetConstantPoolSlice(frame.Claz), uint32(*p))
 
 	//获取方法中的类
-	var classInfo *classAnaly.CLASS_INFO
+	var classInfo *CLASS_INFO
 	var err error
-	classAdr := memCtrl.GetClassMemAddr(methodRef.ClassName)
-	if classAdr == memCtrl.INVALID_MEM {
-		classInfo, err = classAnaly.LoadClass(string(memCtrl.GetSymbol(methodRef.ClassName)))
+	classAdr := GetClassMemAddr(methodRef.ClassName)
+	if classAdr == INVALID_MEM {
+		classInfo, err = LoadClass(string(GetSymbol(methodRef.ClassName)))
 		if err != nil {
 			panic("InvokeSpecial()")
 		}
+		CInit(classInfo.LocalAdr)
 	} else {
-		classInfo = (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
+		classInfo = (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
 	}
-	fmt.Println(string(memCtrl.GetSymbol(classInfo.ClassName)),
-		string(memCtrl.GetSymbol(methodRef.MethodName)),
-		string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	fmt.Println(string(GetSymbol(classInfo.ClassName)),
+		string(GetSymbol(methodRef.MethodName)),
+		string(GetSymbol(methodRef.MethodDesp)))
 	//查找方法
 	methodInfo, methodCLass, codeAdr := classInfo.FindMethodEx(methodRef.MethodName, methodRef.MethodDesp)
-	if methodInfo == nil || codeAdr == memCtrl.INVALID_MEM {
+	if methodInfo == nil || codeAdr == INVALID_MEM {
 		fmt.Println(methodInfo, codeAdr)
 		panic("InvokeSpecial()6")
 	}
-	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
+	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
 	//创建方法栈
 	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, methodCLass.LocalAdr, self.PC)
-	self.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
+	self.PC = codeAdr + CODE_ATTRI_SIZE
 
 	//计算需要弹出的参数个数
-	num := CalParaSize(string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+	num := CalParaSize(string(GetSymbol(methodRef.MethodDesp)))
 	//加上this
 	num++
 	//将上一个栈帧中的值弹出，保存到新的栈帧中的局部变量中
@@ -603,29 +655,30 @@ func (self *METHOD_STACK) InvokeSpecial(frame *METHOD_FRAME) *METHOD_FRAME {
 ******************************************************************/
 func (self *METHOD_STACK) New(frame *METHOD_FRAME) {
 	self.PC++
-	p := (*uint16)(memCtrl.GetPointer(self.PC, 2))
+	p := (*uint16)(GetPointer(self.PC, 2))
 	self.PC += 2
-	className := classAnaly.GetClassFromConstPool(classAnaly.GetConstantPoolSlice(frame.Claz), uint32(*p))
+	className := GetClassFromConstPool(GetConstantPoolSlice(frame.Claz), uint32(*p))
 	var classAdr uint32
-	var classInfo *classAnaly.CLASS_INFO
-	classAdr = memCtrl.GetClassMemAddr(className)
+	var classInfo *CLASS_INFO
+	classAdr = GetClassMemAddr(className)
 	//如果获取不到，则说明不在内存中，需要去加载
-	if classAdr == memCtrl.INVALID_MEM {
+	if classAdr == INVALID_MEM {
 		//获取类名(string)
-		classNameStr := string(memCtrl.GetSymbol(className))
-		classInfo, err := classAnaly.LoadClass(classNameStr)
+		classNameStr := string(GetSymbol(className))
+		classInfo, err := LoadClass(classNameStr)
 		if err != nil {
 			panic("GetStatic()")
 		}
 		classAdr = classInfo.LocalAdr
+		CInit(classInfo.LocalAdr)
 	}
-	accessInfo, accessAdr, err := access.NewAccessInfo()
+	accessInfo, accessAdr, err := NewAccessInfo()
 	if err != nil {
 		panic(err)
 	}
-	classInfo = (*classAnaly.CLASS_INFO)(memCtrl.GetPointer(classAdr, classAnaly.CLASS_INFO_SIZE))
+	classInfo = (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
 	accessInfo.TypeAddr = classAdr
-	accessInfo.DataAddr, err = memCtrl.Malloc(classInfo.UnstaticParaTotalSize, memCtrl.INSTANCE_NODE)
+	accessInfo.DataAddr, err = Malloc(classInfo.UnstaticParaTotalSize, INSTANCE_NODE)
 	if err != nil {
 		panic(err)
 	}
@@ -640,10 +693,10 @@ func (self *METHOD_STACK) New(frame *METHOD_FRAME) {
 func (self *METHOD_STACK) ArrayLength(frame *METHOD_FRAME) {
 	self.PC++
 	arrAdr := frame.Pop()
-	if arrAdr == memCtrl.INVALID_MEM {
+	if arrAdr == INVALID_MEM {
 		panic("null pointer")
 	}
-	arrInfo, _ := access.GetArrayInfo(arrAdr)
+	arrInfo, _ := GetArrayInfo(arrAdr)
 	frame.Push(arrInfo.Length)
 }
 
@@ -654,38 +707,55 @@ func (self *METHOD_STACK) ArrayLength(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) NewArray(frame *METHOD_FRAME) {
 	self.PC++
-	p := (*uint8)(memCtrl.GetPointer(self.PC, 1))
+	p := (*uint8)(GetPointer(self.PC, 1))
 	var symbol uint32
 	var width uint32
 	switch *p {
-	case comValue.AT_BOOLEAN:
-		symbol = memCtrl.SYM_KZ
+	case AT_BOOLEAN:
+		symbol = SYM_KZ
 		width = 1
-	case comValue.AT_BYTE:
-		symbol = memCtrl.SYM_KB
+	case AT_BYTE:
+		symbol = SYM_KB
 		width = 1
-	case comValue.AT_CHAR:
-		symbol = memCtrl.SYM_KC
+	case AT_CHAR:
+		symbol = SYM_KC
 		width = 2
-	case comValue.AT_FLOAT:
-		symbol = memCtrl.SYM_KF
+	case AT_FLOAT:
+		symbol = SYM_KF
 		width = 4
-	case comValue.AT_DOUBLE:
-		symbol = memCtrl.SYM_KD
+	case AT_DOUBLE:
+		symbol = SYM_KD
 		width = 8
-	case comValue.AT_SHORT:
-		symbol = memCtrl.SYM_KS
+	case AT_SHORT:
+		symbol = SYM_KS
 		width = 2
-	case comValue.AT_INT:
-		symbol = memCtrl.SYM_KI
+	case AT_INT:
+		symbol = SYM_KI
 		width = 4
-	case comValue.AT_LONG:
-		symbol = memCtrl.SYM_KJ
+	case AT_LONG:
+		symbol = SYM_KJ
 		width = 8
 	}
 	self.PC++
 
-	_, arrAdr, err := access.NewArray(symbol, width, frame.Pop())
+	_, arrAdr, err := NewArray(symbol, width, frame.Pop())
+	if err != nil {
+		panic("NewArray()8")
+	}
+	frame.Push(arrAdr)
+}
+
+/******************************************************************
+    功能:ANewArray
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) ANewArray(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint8)(GetPointer(self.PC, 2))
+	self.PC += 2
+
+	_, arrAdr, err := NewArray(GetUtf8FromConstPool(GetConstantPoolSlice(frame.Claz), uint32(*p)), 4, frame.Pop())
 	if err != nil {
 		panic("NewArray()8")
 	}
@@ -788,7 +858,7 @@ func (self *METHOD_STACK) Ineg(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Ifge(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 	v := int32(frame.Pop())
 	if v >= 0 {
 		self.PC = uint32(int32(self.PC) + int32(*p))
@@ -803,7 +873,7 @@ func (self *METHOD_STACK) Ifge(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Ifne(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 	v := int32(frame.Pop())
 	if v != 0 {
 		self.PC = uint32(int32(self.PC) + int32(*p))
@@ -818,7 +888,7 @@ func (self *METHOD_STACK) Ifne(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Icmpne(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 	v0 := int32(frame.Pop())
 	v1 := int32(frame.Pop())
 	if v0 != v1 {
@@ -834,7 +904,7 @@ func (self *METHOD_STACK) Icmpne(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Icmplt(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 	v0 := int32(frame.Pop())
 	v1 := int32(frame.Pop())
 	if v0 > v1 {
@@ -850,7 +920,7 @@ func (self *METHOD_STACK) Icmplt(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Icmpgt(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 	v0 := int32(frame.Pop())
 	v1 := int32(frame.Pop())
 	if v0 < v1 {
@@ -866,7 +936,7 @@ func (self *METHOD_STACK) Icmpgt(frame *METHOD_FRAME) {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Icmple(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 	v0 := int32(frame.Pop())
 	v1 := int32(frame.Pop())
 	if v0 >= v1 {
@@ -897,7 +967,7 @@ func (self *METHOD_STACK) IReturn(frame *METHOD_FRAME) *METHOD_FRAME {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Goto(frame *METHOD_FRAME) {
-	p := (*int16)(memCtrl.GetPointer(self.PC+1, 2))
+	p := (*int16)(GetPointer(self.PC+1, 2))
 
 	self.PC = uint32(int32(self.PC) + int32(*p))
 }
@@ -909,7 +979,7 @@ func (self *METHOD_STACK) Goto(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) ILoad(frame *METHOD_FRAME) {
 	self.PC++
-	frame.Push(frame.GetVar(uint32(memCtrl.Memory[self.PC])))
+	frame.Push(frame.GetVar(uint32(Memory[self.PC])))
 	self.PC++
 }
 
@@ -937,12 +1007,12 @@ func (self *METHOD_STACK) IAStore(frame *METHOD_FRAME) {
 	if arrRef == 0 {
 		panic("IAStore() null")
 	}
-	arrInfo, context := access.GetArrayInfo(arrRef)
+	arrInfo, context := GetArrayInfo(arrRef)
 	if index < 0 || index >= int32(arrInfo.Length) {
 		panic("IAStore()")
 	}
 
-	p := (*uint32)(comFunc.BytesToUnsafePointer(context[index*4 : index*4+4]))
+	p := (*uint32)(BytesToUnsafePointer(context[index*4 : index*4+4]))
 	*p = v
 }
 
@@ -959,7 +1029,7 @@ func (self *METHOD_STACK) BAStore(frame *METHOD_FRAME) {
 	if arrRef == 0 {
 		panic("IAStore() null")
 	}
-	arrInfo, context := access.GetArrayInfo(arrRef)
+	arrInfo, context := GetArrayInfo(arrRef)
 	if index < 0 || index >= int32(arrInfo.Length) {
 		panic("IAStore()")
 	}
@@ -977,13 +1047,13 @@ func (self *METHOD_STACK) IALoad(frame *METHOD_FRAME) {
 	index := int32(frame.Pop())
 	arrRef := frame.Pop()
 	if arrRef == 0 {
-		panic("BALoad() null")
+		panic("IALoad() null")
 	}
-	arrInfo, context := access.GetArrayInfo(arrRef)
+	arrInfo, context := GetArrayInfo(arrRef)
 	if index < 0 || index >= int32(arrInfo.Length) {
-		panic("BALoad()")
+		panic("IALoad()")
 	}
-	p := (*int32)(comFunc.BytesToUnsafePointer(context[index*4 : index*4+4]))
+	p := (*int32)(BytesToUnsafePointer(context[index*4 : index*4+4]))
 	frame.Push(uint32(*p))
 }
 
@@ -1000,7 +1070,7 @@ func (self *METHOD_STACK) BALoad(frame *METHOD_FRAME) {
 	if arrRef == 0 {
 		panic("BALoad() null")
 	}
-	arrInfo, context := access.GetArrayInfo(arrRef)
+	arrInfo, context := GetArrayInfo(arrRef)
 	if index < 0 || index >= int32(arrInfo.Length) {
 		panic("BALoad()")
 	}
@@ -1015,7 +1085,7 @@ func (self *METHOD_STACK) BALoad(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) Store32Byte(frame *METHOD_FRAME) {
 	self.PC++
-	frame.SetVar(uint32(memCtrl.Memory[self.PC]), frame.Pop())
+	frame.SetVar(uint32(Memory[self.PC]), frame.Pop())
 	self.PC++
 }
 
@@ -1027,7 +1097,7 @@ func (self *METHOD_STACK) Store32Byte(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) IStore(frame *METHOD_FRAME) {
 	self.PC++
-	frame.SetVar(uint32(memCtrl.Memory[self.PC]), frame.Pop())
+	frame.SetVar(uint32(Memory[self.PC]), frame.Pop())
 	self.PC++
 }
 
@@ -1093,31 +1163,31 @@ func CalParaSize(desp string) uint32 {
 	入参:无
     返回值:无
 ******************************************************************/
-func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) bool {
+func StubInvokeFunc(frame *METHOD_FRAME, methodRef MethodInfo) bool {
 	//System.out.println函数打桩
-	if methodRef.ClassName == memCtrl.SYM_java_io_PrintStream &&
-		methodRef.MethodName == memCtrl.SYM_println &&
-		methodRef.MethodDesp == memCtrl.SYM_Ljava_lang_String_V {
+	if methodRef.ClassName == SYM_java_io_PrintStream &&
+		methodRef.MethodName == SYM_println &&
+		methodRef.MethodDesp == SYM_Ljava_lang_String_V {
 		strAccess := frame.Pop()
-		strInst := (*access.STRING)(comFunc.BytesToUnsafePointer(access.GetData(strAccess)))
-		_, context := access.GetArrayInfo(strInst.ArrAdr)
-		utf16_str := *(*[]uint16)(comFunc.BytesToArray(context, 2))
+		strInst := (*STRING)(BytesToUnsafePointer(GetData(strAccess)))
+		_, context := GetArrayInfo(strInst.ArrAdr)
+		utf16_str := *(*[]uint16)(BytesToArray(context, 2))
 		fmt.Println(string(utf16.Decode(utf16_str)))
 
-		fmt.Println("STUB:", string(memCtrl.GetSymbol(methodRef.ClassName)),
-			string(memCtrl.GetSymbol(methodRef.MethodName)),
-			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+		fmt.Println("STUB:", string(GetSymbol(methodRef.ClassName)),
+			string(GetSymbol(methodRef.MethodName)),
+			string(GetSymbol(methodRef.MethodDesp)))
 
 		return true
 	}
-	if methodRef.ClassName == memCtrl.SYM_java_io_PrintStream &&
-		methodRef.MethodName == memCtrl.SYM_println &&
-		methodRef.MethodDesp == memCtrl.SYM_S_V {
+	if methodRef.ClassName == SYM_java_io_PrintStream &&
+		methodRef.MethodName == SYM_println &&
+		methodRef.MethodDesp == SYM_S_V {
 		fmt.Println()
 
-		fmt.Println("STUB:", string(memCtrl.GetSymbol(methodRef.ClassName)),
-			string(memCtrl.GetSymbol(methodRef.MethodName)),
-			string(memCtrl.GetSymbol(methodRef.MethodDesp)))
+		fmt.Println("STUB:", string(GetSymbol(methodRef.ClassName)),
+			string(GetSymbol(methodRef.MethodName)),
+			string(GetSymbol(methodRef.MethodDesp)))
 
 		return true
 	}
@@ -1130,17 +1200,37 @@ func StubInvokeFunc(frame *METHOD_FRAME, methodRef classAnaly.MethodInfo) bool {
     返回值:无
 ******************************************************************/
 func (self *METHOD_STACK) Log(frame *METHOD_FRAME) {
-	fmt.Println("---", self.TopFrame, "---")
+	fmt.Println("---", self.TopFrame, self.StackNum, "---")
 	fmt.Print("Stack: ")
 	for i := uint32(0); i < frame.CurOpStackIndex; i++ {
-		p := (*int32)(memCtrl.GetPointer(frame.LocalAdr+METHOD_FRAME_SIZE+(frame.VarSize+i)*4, 4))
+		p := (*int32)(GetPointer(frame.LocalAdr+METHOD_FRAME_SIZE+(frame.VarSize+i)*4, 4))
 		fmt.Print(*p, " ")
 	}
 	fmt.Println()
 	fmt.Printf("LocalVer: ")
 	for i := uint32(0); i < frame.VarSize; i++ {
-		p := (*int32)(memCtrl.GetPointer(frame.LocalAdr+METHOD_FRAME_SIZE+i*4, 4))
+		p := (*int32)(GetPointer(frame.LocalAdr+METHOD_FRAME_SIZE+i*4, 4))
 		fmt.Print(*p, " ")
 	}
 	fmt.Println()
+}
+func CInit(adr uint32) {
+	classInfo := (*CLASS_INFO)(GetPointer(adr, CLASS_INFO_SIZE))
+	if classInfo.IsCInit {
+		return
+	}
+	classInfo.IsCInit = true
+	if classInfo.SuperClassAddr != INVALID_MEM {
+		CInit(classInfo.SuperClassAddr)
+	}
+	methodInfo, codeAdr := classInfo.FindMethod(SYM_CINIT, SYM_S_V)
+	if methodInfo == nil || codeAdr == INVALID_MEM {
+		return
+	}
+	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
+	//创建方法栈
+	methodStack := NewMethodStack()
+	methodStack.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, classInfo.LocalAdr, 0)
+	methodStack.PC = codeAdr + CODE_ATTRI_SIZE
+	methodStack.Excute()
 }

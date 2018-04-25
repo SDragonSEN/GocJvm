@@ -1,4 +1,4 @@
-package comFunc
+package com
 
 import (
 	"reflect"

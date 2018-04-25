@@ -4,83 +4,86 @@ package main
 import (
 	"fmt"
 
-	"accessOp"
-	"class"
-	"classAnaly"
-	"comFunc"
-	"comValue"
-	"memoryControl"
+	. "access/access"
 	"methodStack"
-	"startup"
+	. "startup"
+
+	. "access/array"
+	. "access/string"
+	. "basic/com"
+	. "basic/memCtrl"
+	. "basic/symbol"
+	. "class/classFind"
+	. "class/classInterface"
+	. "class/classParse"
 )
 
 func main() {
 
-	comValue.Init()
+	ParseCmd()
+	InitClassPath(CmdPara.Jar)
 
-	startup.ParseCmd()
-	class.InitClassPath(startup.CmdPara.Jar)
-
-	memCtrl.Init(1024 * 1024)
-
-	_, err := classAnaly.LoadClass("java.lang.Object")
+	object, err := LoadClass("java.lang.Object")
 	if err != nil {
 		panic("main()1")
 	}
+	method.CInit(object.LocalAdr)
+
 	//加载数组
-	arrayTypeAdr := classAnaly.LoadArrayClass()
-	access.ModifyTypeAddr(access.INIT_ARRAY_CLASS_ADR, arrayTypeAdr)
-	access.ArrayClassAdr = arrayTypeAdr
+	arrayTypeAdr := LoadArrayClass()
+	ModifyTypeAddr(INIT_ARRAY_CLASS_ADR, arrayTypeAdr)
+	ArrayClassAdr = arrayTypeAdr
 	//加载String
-	stringClass, err := classAnaly.LoadClass("java.lang.String")
+	stringClass, err := LoadClass("java.lang.String")
 	if err != nil {
 		fmt.Println("error:main():", err)
 		panic("main()2")
 	}
-	access.ModifyTypeAddr(access.INIT_STRING_CLASS_ADR, stringClass.LocalAdr)
-	access.StringClassAdr = stringClass.LocalAdr
+	ModifyTypeAddr(INIT_STRING_CLASS_ADR, stringClass.LocalAdr)
+	StringClassAdr = stringClass.LocalAdr
 	//加载主类
-	mainClass, err := classAnaly.LoadClass(startup.CmdPara.MainClass)
+	mainClass, err := LoadClass(CmdPara.MainClass)
 	if err != nil {
 		fmt.Println(mainClass, err)
 		panic("main()3")
 	}
+	method.CInit(mainClass.LocalAdr)
 	//查找main方法,to do 后续补一下可访问性的判断
-	methodName, err := memCtrl.PutSymbol([]byte("main"))
+	methodName, err := PutSymbol([]byte("main"))
 	if err != nil {
 		fmt.Println(err)
 		panic("main()4")
 	}
-	methodDescriptor, err := memCtrl.PutSymbol([]byte("([Ljava/lang/String;)V"))
+	methodDescriptor, err := PutSymbol([]byte("([Ljava/lang/String;)V"))
 	if err != nil {
 		fmt.Println(err)
 		panic("main()5")
 	}
 	methodInfo, codeAdr := mainClass.FindMethod(methodName, methodDescriptor)
-	if methodInfo == nil || codeAdr == memCtrl.INVALID_MEM {
+	if methodInfo == nil || codeAdr == INVALID_MEM {
 		fmt.Println(methodInfo, codeAdr)
 		panic("main()6")
 	}
-	codeAttri := (*classAnaly.CODE_ATTRI)(memCtrl.GetPointer(codeAdr, classAnaly.CODE_ATTRI_SIZE))
+	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
 	//创建方法栈
 	methodStack := method.NewMethodStack()
 	frame := methodStack.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, mainClass.LocalAdr, 0)
-	methodStack.PC = codeAdr + classAnaly.CODE_ATTRI_SIZE
+	methodStack.PC = codeAdr + CODE_ATTRI_SIZE
 
 	//创建main函数参数String,加入到变量区
-	stringAdrs := make([]uint32, len(startup.CmdPara.Args))
-	for i, arg := range startup.CmdPara.Args {
-		stringAdrs[i], err = access.PutString(access.BytesToUint16([]byte(arg)))
+	stringAdrs := make([]uint32, len(CmdPara.Args))
+	for i, arg := range CmdPara.Args {
+		stringAdrs[i], err = PutString(BytesToUtf16([]byte(arg)))
 		if err != nil {
 			panic("main()7")
 		}
 	}
-	_, arrAdr, err := access.NewArray(memCtrl.SYM_Kjava_lang_String, 4, uint32(len(stringAdrs)))
+	_, arrAdr, err := NewArray(SYM_Kjava_lang_String, 4, uint32(len(stringAdrs)))
 	if err != nil {
 		panic("main()8")
 	}
-	_, arrData := access.GetArrayInfo(arrAdr)
-	arr := *(*[]uint32)(comFunc.BytesToArray(arrData, 4))
+	_, arrData := GetArrayInfo(arrAdr)
+	arr := *(*[]uint32)(BytesToArray(arrData, 4))
 	for i, v := range stringAdrs {
 		arr[i] = v
 	}

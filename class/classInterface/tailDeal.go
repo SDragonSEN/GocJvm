@@ -1,8 +1,10 @@
-package classAnaly
+package classInterface
 
 import (
-	"comFunc"
-	"memoryControl"
+	. "basic/com"
+	. "basic/memCtrl"
+	. "basic/symbol"
+	. "class/classTable"
 )
 
 /******************************************************************
@@ -13,16 +15,16 @@ import (
 func LoadArrayClass() uint32 {
 	var err error
 	arrayClassMem := make([]byte, CLASS_INFO_SIZE)
-	classInfo := (*CLASS_INFO)(comFunc.BytesToUnsafePointer(arrayClassMem))
-	classInfo.ClassName, err = memCtrl.PutSymbol([]byte("java.lang.array"))
+	classInfo := (*CLASS_INFO)(BytesToUnsafePointer(arrayClassMem))
+	classInfo.ClassName, err = PutSymbol([]byte("java.lang.array"))
 	if err != nil {
 		panic("LoadArrayClass()1")
 	}
-	objectClass, err := memCtrl.PutSymbol([]byte("java.lang.Object"))
+	objectClass, err := PutSymbol([]byte("java.lang.Object"))
 	if err != nil {
 		panic("LoadArrayClass()2")
 	}
-	classInfo.SuperClassAddr = memCtrl.GetClassMemAddr(objectClass)
+	classInfo.SuperClassAddr = GetClassMemAddr(objectClass)
 	classInfo.AccessFlag = CLASS_ACC_PUBLIC | CLASS_ACC_FINAL | CLASS_ACC_SUPER
 	classInfo.ConstNum = 0
 	classInfo.FiledInfoDev = CLASS_INFO_SIZE
@@ -35,8 +37,8 @@ func LoadArrayClass() uint32 {
 	classInfo.InterfaceNum = 0
 	classInfo.MethodDev = CLASS_INFO_SIZE
 	classInfo.MethodNum = 0
-	memAdr, err := memCtrl.PutClass(classInfo.ClassName, arrayClassMem)
-	(*CLASS_INFO)(memCtrl.GetPointer(memAdr, CLASS_INFO_SIZE)).LocalAdr = memAdr
+	memAdr, err := PutClass(classInfo.ClassName, arrayClassMem)
+	(*CLASS_INFO)(GetPointer(memAdr, CLASS_INFO_SIZE)).LocalAdr = memAdr
 
 	if err != nil {
 		panic("LoadArrayClass()3")

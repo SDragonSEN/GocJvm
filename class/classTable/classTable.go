@@ -1,8 +1,21 @@
 package memCtrl
 
 import (
+	. "basic/memCtrl"
 	"errors"
+
+	. "basic/com"
 )
+
+var classHeaderAdr uint32
+
+func init() {
+	//初始化类表头结点
+	classHeaderAdr, _ = Malloc(CLASS_HEADER_SIZE, CLASS_NODE)
+	classHeader := (*ClassItem)(BytesToUnsafePointer(Memory[classHeaderAdr:]))
+	classHeader.ClassName = INVALID_MEM
+	classHeader.Next = INVALID_MEM
+}
 
 /***********************************
  添加class，返回地址
@@ -22,7 +35,7 @@ func PutClass(className uint32, context []byte) (uint32, error) {
 	newClass := (*ClassItem)(GetPointer(newClassAdr, CLASS_HEADER_SIZE))
 	newClass.ClassName = className
 	newClass.Next = INVALID_MEM
-	copy(Memory[newClassAdr+CLASS_HEADER_SIZE:newClassAdr+SYMBOL_HEADER_SIZE+uint32(len(context))], context)
+	copy(Memory[newClassAdr+CLASS_HEADER_SIZE:newClassAdr+CLASS_HEADER_SIZE+uint32(len(context))], context)
 	return newClassAdr + CLASS_HEADER_SIZE, nil
 }
 

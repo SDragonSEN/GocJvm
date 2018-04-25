@@ -3,9 +3,9 @@ package test
 import (
 	"testing"
 
-	"class"
-	"classAnaly"
-	"memoryControl"
+	. "basic/memCtrl"
+	. "class/classFind"
+	. "class/classParse"
 )
 
 /*********************************************************
@@ -13,7 +13,7 @@ import (
 测试内容:读取存在的.class文件成功
 *********************************************************/
 func Test_DirEntry_Case1(t *testing.T) {
-	dir, err := class.NewDirEntry("./stub/class/DirEntry", false)
+	dir, err := NewDirEntry("./stub/class/DirEntry", false)
 
 	if err != nil {
 		t.Error("地址转化错误")
@@ -35,7 +35,7 @@ func Test_DirEntry_Case1(t *testing.T) {
 测试内容:读取不存在的.class文件失败
 *********************************************************/
 func Test_DirEntry_Case2(t *testing.T) {
-	dir, err := class.NewDirEntry("./stub/class/DirEntry", false)
+	dir, err := NewDirEntry("./stub/class/DirEntry", false)
 
 	if err != nil {
 		t.Error("地址转化错误")
@@ -57,7 +57,7 @@ func Test_DirEntry_Case2(t *testing.T) {
 测试内容:路径不存在
 *********************************************************/
 func Test_DirEntry_Case3(t *testing.T) {
-	_, err := class.NewDirEntry("./stub/class/DirEntry/error", false)
+	_, err := NewDirEntry("./stub/class/DirEntry/error", false)
 
 	if err == nil {
 		t.Error("地址转化错误")
@@ -69,7 +69,7 @@ func Test_DirEntry_Case3(t *testing.T) {
 测试内容:读取存在的.class文件成功
 *********************************************************/
 func Test_DirEntry_Case4(t *testing.T) {
-	dir, err := class.NewDirEntry("./stub/class/JarEntry", true)
+	dir, err := NewDirEntry("./stub/class/JarEntry", true)
 
 	if err != nil {
 		t.Error("地址转化错误")
@@ -91,9 +91,9 @@ func Test_DirEntry_Case4(t *testing.T) {
 测试内容:从classpath中读取Object类
 *********************************************************/
 func Test_ReadClass_Case1(t *testing.T) {
-	class.InitClassPath("")
+	InitClassPath("")
 
-	data, err := class.ReadClass("java.lang.Object")
+	data, err := ReadClass("java.lang.Object")
 
 	if data == nil {
 		t.Error("读取失败，内容为空")
@@ -109,10 +109,9 @@ func Test_ReadClass_Case1(t *testing.T) {
 测试内容:加载Object类
 *********************************************************/
 func Test_AnalyClass_Case1(t *testing.T) {
-	class.InitClassPath("")
-	memCtrl.Init(25535)
+	InitClassPath("")
 
-	_, err := classAnaly.LoadClass("java.lang.Object")
+	_, err := LoadClass("java.lang.Object")
 
 	if err != nil {
 		t.Error("解析失败，err不为空")

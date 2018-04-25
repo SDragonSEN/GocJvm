@@ -11,14 +11,6 @@ type NodeHeader struct {
 
 const MEM_HEADER_SIZE = 4 * 4 //内存块大小(4) + 前一个内存块地址(4) + 后一个内存块地址(4) + 内存类型(1)
 
-//符号表信息
-type SymbolItem struct {
-	Next   uint32
-	Length uint32
-}
-
-const SYMBOL_HEADER_SIZE = 8 //next指针(4) + 符号长度(4)
-
 //类内存节点
 type ClassItem struct {
 	Next      uint32

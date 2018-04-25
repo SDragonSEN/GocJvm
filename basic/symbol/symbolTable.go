@@ -1,9 +1,18 @@
-package memCtrl
+package symbol
 
 import (
+	. "basic/memCtrl"
 	"bytes"
 	"errors"
 )
+
+//符号表信息
+type SymbolItem struct {
+	Next   uint32
+	Length uint32
+}
+
+const SYMBOL_HEADER_SIZE = 8 //next指针(4) + 符号长度(4)
 
 var SYM_J uint32 //long型的符号
 var SYM_D uint32 //double型的符号
@@ -22,11 +31,15 @@ var SYM_java_io_PrintStream uint32
 var SYM_println uint32
 var SYM_Ljava_lang_String_V uint32
 var SYM_S_V uint32
+var SYM_CINIT uint32
+
+var symHeaderAdr uint32
 
 /***********************************
- 初始化符号表
+ 初始化函数
 ************************************/
-func SymbolInit() {
+func init() {
+	//初始化符号表头结点
 	symHeaderAdr, _ = Malloc(SYMBOL_HEADER_SIZE, SYMBOL_NODE)
 	symHeader := (*SymbolItem)(GetPointer(symHeaderAdr, SYMBOL_HEADER_SIZE))
 	symHeader.Length = 0
@@ -89,6 +102,10 @@ func SymbolInit() {
 		panic("")
 	}
 	SYM_S_V, err = PutSymbol([]byte("()V"))
+	if err != nil {
+		panic("")
+	}
+	SYM_CINIT, err = PutSymbol([]byte("<clinit>"))
 	if err != nil {
 		panic("")
 	}
