@@ -16,6 +16,7 @@ type CLASS_INFO struct {
 	IsCInit               bool
 	rsv                   uint8
 	ConstNum              uint32 //常量数量
+	ClassConstDev         uint32 //类常量偏移
 	FiledInfoDev          uint32 //参数信息偏移
 	UnstaticParaDev       uint32 //非static参数地址
 	UnstaticParaSize      uint32 //非static参数大小
@@ -32,7 +33,7 @@ type CLASS_INFO struct {
 	LocalAdr              uint32 //该类的地址
 }
 
-const CLASS_INFO_SIZE = 18 * 4
+const CLASS_INFO_SIZE = 19 * 4
 
 type FILED_ITEM struct {
 	FiledName    uint32 //字段名(符号表索引)
@@ -106,3 +107,18 @@ const CLASS_ACC_ABSTRACT = 0x0400
 const CLASS_ACC_SYNTHETIC = 0x1000
 const CLASS_ACC_ANNOTATION = 0x2000
 const CLASS_ACC_ENUM = 0x4000
+
+const (
+	METHOD_ACC_PUBLIC       = 0x0001
+	METHOD_ACC_PRIVATE      = 0x0002
+	METHOD_ACC_PROTECTED    = 0x0004
+	METHOD_ACC_STATIC       = 0x0008
+	METHOD_ACC_FINAL        = 0x0010
+	METHOD_ACC_SYNCHRONIZED = 0x0020
+	METHOD_ACC_BRIDGE       = 0x0040
+	METHOD_ACC_VARARGS      = 0x0080
+	METHOD_ACC_NATIVE       = 0x0100
+	METHOD_ACC_ABSTRACT     = 0x0400
+	METHOD_ACC_STRICT       = 0x0800
+	METHOD_ACC_SYNTHETIC    = 0x1000
+)

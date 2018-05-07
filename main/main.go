@@ -22,7 +22,6 @@ func main() {
 
 	ParseCmd()
 	InitClassPath(CmdPara.Jar)
-
 	object, err := LoadClass("java.lang.Object")
 	if err != nil {
 		panic("main()1")

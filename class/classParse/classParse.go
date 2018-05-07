@@ -44,13 +44,14 @@ func LoadClass(className string) (*CLASS_INFO, error) {
 	//读取版本号，暂时不使用
 	context, _, _ = readVersion(context)
 	//读取常量池
-	context, constPool, num, err := readConstantPool(context)
+	context, constPool, clazConst, num, err := readConstantPool(context)
 	classInfo.ConstNum = num
 	if err != nil {
 		return nil, err
 	}
 	result = append(result, constPool...)
-
+	classInfo.ClassConstDev = uint32(len(result))
+	result = append(result, clazConst...)
 	//读取类信息
 	context, classInfo.AccessFlag, classInfo.ClassName, classInfo.SuperClassAddr, err = readClassInfo(context, constPool)
 	if err != nil {
@@ -194,7 +195,7 @@ func readVersion(context []byte) ([]byte, uint16, uint16) {
 		  3、常量池数量
 		  3、error
 ******************************************************************/
-func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
+func readConstantPool(context []byte) ([]byte, []byte, []byte, uint32, error) {
 	//符号数量从1到size-1
 	size := BytesToUint16(context[0:2])
 	//消耗的码流数量
@@ -203,6 +204,7 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 	//结果
 	result := make([]byte, 0)
 	strs := make([]uint32, 0)
+	clzs := make([]byte, 0)
 	var i uint16
 	var constantBytes []byte
 	var consume uint32
@@ -217,7 +219,7 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 		case 0x01:
 			constantBytes, consume, err = readConstantUtf8Info(context[count:])
 			if err != nil {
-				return nil, nil, 0, err
+				return nil, nil, nil, 0, err
 			}
 		//Integer_info
 		case 0x03:
@@ -237,6 +239,10 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 			constantBytes, consume = readConstantDoubleInfo(context[count:])
 		//Class_info
 		case 0x07:
+			clzIndexMem := make([]byte, 4)
+			p := (*uint32)(BytesToUnsafePointer(clzIndexMem))
+			*p = uint32(i)
+			clzs = append(clzs, clzIndexMem...)
 			constantBytes, consume = readConstantClassInfo(context[count:])
 		//String_info
 		case 0x08:
@@ -255,7 +261,7 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 		case 0x0C:
 			constantBytes, consume = readConstantNameAndTypeInfo(context[count:])
 		default:
-			return nil, nil, 0, errors.New("常量池解析错误")
+			return nil, nil, nil, 0, errors.New("常量池解析错误")
 		}
 		count += consume
 		result = append(result, constantBytes...)
@@ -265,14 +271,14 @@ func readConstantPool(context []byte) ([]byte, []byte, uint32, error) {
 		str := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(result[v : v+4]))
 		strAdr := GetUtf8FromConstPool(result, str.Param)
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, nil, 0, err
 		}
 		str.Param, err = PutString(BytesToUtf16(GetSymbol(strAdr)))
 		if err != nil {
-			return nil, nil, 0, err
+			return nil, nil, nil, 0, err
 		}
 	}
-	return context[count:], result, uint32(size), nil
+	return context[count:], result, clzs, uint32(size), nil
 }
 
 /******************************************************************

@@ -32,7 +32,7 @@ var SYM_println uint32
 var SYM_Ljava_lang_String_V uint32
 var SYM_S_V uint32
 var SYM_CINIT uint32
-
+var SYM_JAVA_LANG_CLASS uint32
 var symHeaderAdr uint32
 
 /***********************************
@@ -106,6 +106,10 @@ func init() {
 		panic("")
 	}
 	SYM_CINIT, err = PutSymbol([]byte("<clinit>"))
+	if err != nil {
+		panic("")
+	}
+	SYM_JAVA_LANG_CLASS, err = PutSymbol([]byte("java/lang/Class"))
 	if err != nil {
 		panic("")
 	}

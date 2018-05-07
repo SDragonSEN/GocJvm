@@ -160,6 +160,19 @@ func (self *METHOD_FRAME) Pop() uint32 {
 }
 
 /******************************************************************
+    功能:操作数栈弹栈
+	入参:无
+    返回值:value
+******************************************************************/
+func (self *METHOD_FRAME) PopInt64() int64 {
+	v1 := self.Pop()
+	v0 := self.Pop()
+
+	v := int64((uint64(v0) << 32) | uint64(v1))
+	return v
+}
+
+/******************************************************************
     功能:获取栈顶元素
 	入参:无
     返回值:value
@@ -181,9 +194,9 @@ func (self *METHOD_STACK) Excute() {
 	i := 0
 	frame := (*METHOD_FRAME)(GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
 	for {
-		//self.Log(frame)
-		//fmt.Println(Format(Memory[self.PC]))
-		//fmt.Println(self.PC)
+		self.Log(frame)
+		fmt.Println(Format(Memory[self.PC]))
+		fmt.Println(self.PC)
 		switch Memory[self.PC] {
 		case NOP:
 			if i > 20 {
@@ -191,6 +204,8 @@ func (self *METHOD_STACK) Excute() {
 			}
 			i++
 			self.PC++
+		case ACONST_NULL:
+			self.Aconst_Null(frame)
 		case ICONST_M1:
 			self.IConst(frame, -1)
 		case ICONST_0:
@@ -209,6 +224,10 @@ func (self *METHOD_STACK) Excute() {
 			self.BIPush(frame)
 		case LDC:
 			self.Ldc(frame)
+		case LDC_W:
+			self.Ldc_w(frame)
+		case LDC2_W:
+			self.Ldc2_w(frame)
 		case ILOAD:
 			self.ILoad(frame)
 		case ALOAD:
@@ -221,8 +240,12 @@ func (self *METHOD_STACK) Excute() {
 			self.Load32(frame, 2)
 		case ILOAD_3:
 			self.Load32(frame, 3)
+		case LLOAD_2:
+			self.Load64(frame, 2)
 		case FLOAD_0:
 			self.Load32(frame, 0)
+		case DLOAD_0:
+			self.Load64(frame, 0)
 		case ALOAD_0:
 			self.Load32(frame, 0)
 		case ALOAD_1:
@@ -243,6 +266,8 @@ func (self *METHOD_STACK) Excute() {
 			self.Store32(frame, 2)
 		case ISTORE_3:
 			self.Store32(frame, 3)
+		case LSTORE_2:
+			self.Store64(frame, 2)
 		case ASTORE_1:
 			self.Store32(frame, 1)
 		case ASTORE_2:
@@ -268,6 +293,14 @@ func (self *METHOD_STACK) Excute() {
 			self.Irem(frame)
 		case INEG:
 			self.Ineg(frame)
+		case IAND:
+			self.Iand(frame)
+		case LAND:
+			self.Land(frame)
+		case I2L:
+			self.I2L(frame)
+		case LCMP:
+			self.Lcmp(frame)
 		case IFGE:
 			self.Ifge(frame)
 		case IFNE:
@@ -283,6 +316,11 @@ func (self *METHOD_STACK) Excute() {
 
 		case IRETURN:
 			frame = self.IReturn(frame)
+			if frame == nil {
+				goto label
+			}
+		case LRETURN:
+			frame = self.LReturn(frame)
 			if frame == nil {
 				goto label
 			}
@@ -318,6 +356,8 @@ func (self *METHOD_STACK) Excute() {
 			self.NewArray(frame)
 		case ANEWARRAY:
 			self.ANewArray(frame)
+		case IFNULL:
+			self.IfNull(frame)
 		default:
 			fmt.Printf("Memory[self.PC]:%x ", Memory[self.PC])
 			panic(Format(Memory[self.PC]))
@@ -484,9 +524,71 @@ func (self *METHOD_STACK) BIPush(frame *METHOD_FRAME) {
 ******************************************************************/
 func (self *METHOD_STACK) Ldc(frame *METHOD_FRAME) {
 	self.PC++
-	v := GetStringFromConstPool(GetConstantPoolSlice(frame.Claz), uint32(Memory[self.PC]))
+
+	classIndex := uint32(Memory[self.PC])
+	fmt.Println(classIndex)
+	if IsClassConstant(frame.Claz, classIndex) {
+		fmt.Println("Ldc0")
+		className := GetClassFromConstPool(GetConstantPoolSlice(frame.Claz), classIndex)
+		classInstant := GetClassMemAddr(className)
+		if classInstant == INVALID_MEM {
+			classInfo, err := LoadClass(string(GetSymbol(className)))
+			if err != nil {
+				panic("Ldc()")
+			}
+			CInit(classInfo.LocalAdr)
+			classInstant = classInfo.LocalAdr
+		}
+		frame.Push(classInstant)
+		self.PC++
+		return
+	}
+	fmt.Println("Ldc1")
+	v := GetUint32FromConstPool(GetConstantPoolSlice(frame.Claz), classIndex)
 	frame.Push(v)
 	self.PC++
+}
+
+/******************************************************************
+    功能:Ldc_w指令
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Ldc_w(frame *METHOD_FRAME) {
+	self.PC++
+	p := uint32(*(*uint16)(GetPointer(self.PC, 2)))
+	if IsClassConstant(frame.Claz, p) {
+		className := GetClassFromConstPool(GetConstantPoolSlice(frame.Claz), p)
+		classInstant := GetClassMemAddr(className)
+		if classInstant == INVALID_MEM {
+			classInfo, err := LoadClass(string(GetSymbol(className)))
+			if err != nil {
+				panic("Ldc()")
+			}
+			CInit(classInfo.LocalAdr)
+			classInstant = classInfo.LocalAdr
+		}
+		frame.Push(classInstant)
+		self.PC += 2
+		return
+	}
+	v := GetUint32FromConstPool(GetConstantPoolSlice(frame.Claz), p)
+	frame.Push(v)
+	self.PC += 2
+}
+
+/******************************************************************
+    功能:Ldc2_w指令
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Ldc2_w(frame *METHOD_FRAME) {
+	self.PC++
+	p := (*uint16)(GetPointer(self.PC, 2))
+	v0, v1 := GetUint64FromConstPool(GetConstantPoolSlice(frame.Claz), uint32(*p))
+	frame.Push(v0)
+	frame.Push(v1)
+	self.PC += 2
 }
 
 /******************************************************************
@@ -502,20 +604,23 @@ func (self *METHOD_STACK) InvokeVirtual(frame *METHOD_FRAME) *METHOD_FRAME {
 	if StubInvokeFunc(frame, methodRef) {
 		return nil
 	}
-
+	fmt.Println(string(GetSymbol(methodRef.ClassName)),
+		string(GetSymbol(methodRef.MethodName)),
+		string(GetSymbol(methodRef.MethodDesp)))
+	//反射函数调用
+	if methodRef.ClassName == SYM_JAVA_LANG_CLASS {
+		return self.ReflectMethod(frame, &methodRef)
+	}
 	num := CalParaSize(string(GetSymbol(methodRef.MethodDesp)))
 	param := make([]uint32, num)
 	//将上一个栈帧中的值弹出，保存到新的栈帧中的局部变量中
 	for i := num; i > 0; i-- {
 		param[i-1] = frame.Pop()
 	}
+
 	//获取this中的类
 	this := frame.Pop()
 	classInfo := (*CLASS_INFO)(GetPointer(GetClassInfo(this), CLASS_INFO_SIZE))
-
-	fmt.Println(string(GetSymbol(methodRef.ClassName)),
-		string(GetSymbol(methodRef.MethodName)),
-		string(GetSymbol(methodRef.MethodDesp)))
 
 	if StubInvokeFunc(frame, methodRef) {
 		return nil
@@ -562,7 +667,7 @@ func (self *METHOD_STACK) InvokeStatic(frame *METHOD_FRAME) *METHOD_FRAME {
 	if classAdr == INVALID_MEM {
 		classInfo, err = LoadClass(string(GetSymbol(methodRef.ClassName)))
 		if err != nil {
-			panic("InvokeSpecial()")
+			panic("InvokeStatic()")
 		}
 		CInit(classInfo.LocalAdr)
 	} else {
@@ -570,12 +675,12 @@ func (self *METHOD_STACK) InvokeStatic(frame *METHOD_FRAME) *METHOD_FRAME {
 	}
 	//查找方法
 	methodInfo, codeAdr := classInfo.FindMethod(methodRef.MethodName, methodRef.MethodDesp)
-	if methodInfo == nil || codeAdr == INVALID_MEM {
-		fmt.Println("未实现的本地方法", string(GetSymbol(classInfo.ClassName)),
-			string(GetSymbol(methodRef.MethodName)),
-			string(GetSymbol(methodRef.MethodDesp)))
+	if methodInfo.AccessFlag&METHOD_ACC_NATIVE == METHOD_ACC_NATIVE {
+		ExcuteLocalMethodAdp(methodRef.ClassName, methodRef.MethodName, methodRef.MethodDesp, frame)
 
-		return (*METHOD_FRAME)(GetPointer(self.TopFrame, METHOD_FRAME_SIZE))
+		return frame
+	} else if codeAdr == INVALID_MEM {
+		panic("方法没找到!")
 	}
 	fmt.Println(string(GetSymbol(methodRef.ClassName)),
 		string(GetSymbol(methodRef.MethodName)),
@@ -842,6 +947,49 @@ func (self *METHOD_STACK) Irem(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
+    功能:Iand
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Iand(frame *METHOD_FRAME) {
+	self.PC++
+	v1 := uint32(frame.Pop())
+	v0 := uint32(frame.Pop())
+
+	frame.Push(v0 & v1)
+}
+
+/******************************************************************
+    功能:Iand
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Land(frame *METHOD_FRAME) {
+	self.PC++
+	v1 := uint32(frame.Pop())
+	v0 := uint32(frame.Pop())
+
+	w1 := uint32(frame.Pop())
+	w0 := uint32(frame.Pop())
+
+	frame.Push(v0 & w0)
+	frame.Push(v1 & w1)
+}
+
+/******************************************************************
+    功能:Iand
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) I2L(frame *METHOD_FRAME) {
+	self.PC++
+	v1 := int32(frame.Pop())
+	n := uint64(v1)
+	frame.Push(uint32(n >> 32))
+	frame.Push(uint32(n & 0xffffffff))
+}
+
+/******************************************************************
     功能:Ineg
 	入参:*METHOD_FRAME
     返回值:无
@@ -850,6 +998,25 @@ func (self *METHOD_STACK) Ineg(frame *METHOD_FRAME) {
 	self.PC++
 	v0 := int32(frame.Pop())
 	frame.Push(uint32(-v0))
+}
+
+/******************************************************************
+    功能:Lcmp
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Lcmp(frame *METHOD_FRAME) {
+	self.PC++
+	v0 := frame.PopInt64()
+	v1 := frame.PopInt64()
+	v := int32(-1)
+	if v0 > v1 {
+		frame.Push(uint32(1))
+	} else if v0 < v1 {
+		frame.Push(uint32(v))
+	} else {
+		frame.Push(uint32(0))
+	}
 }
 
 /******************************************************************
@@ -947,7 +1114,7 @@ func (self *METHOD_STACK) Icmple(frame *METHOD_FRAME) {
 }
 
 /******************************************************************
-    功能:Ifge
+    功能:IReturn
 	入参:*METHOD_FRAME
     返回值:无
 ******************************************************************/
@@ -958,6 +1125,23 @@ func (self *METHOD_STACK) IReturn(frame *METHOD_FRAME) *METHOD_FRAME {
 		return nil
 	}
 	newFrame.Push(v)
+	return newFrame
+}
+
+/******************************************************************
+    功能:LReturn
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) LReturn(frame *METHOD_FRAME) *METHOD_FRAME {
+	v1 := frame.Pop()
+	v0 := frame.Pop()
+	newFrame := self.PopFrame()
+	if newFrame == nil {
+		return nil
+	}
+	newFrame.Push(v0)
+	newFrame.Push(v1)
 	return newFrame
 }
 
@@ -992,6 +1176,18 @@ func (self *METHOD_STACK) ILoad(frame *METHOD_FRAME) {
 func (self *METHOD_STACK) Load32(frame *METHOD_FRAME, index uint32) {
 	self.PC++
 	frame.Push(frame.GetVar(index))
+}
+
+/******************************************************************
+    功能:Load32
+	入参:1、*METHOD_FRAME
+	    2、局部变量索引
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Load64(frame *METHOD_FRAME, index uint32) {
+	self.PC++
+	frame.Push(frame.GetVar(index))
+	frame.Push(frame.GetVar(index + 1))
 }
 
 /******************************************************************
@@ -1113,6 +1309,29 @@ func (self *METHOD_STACK) Store32(frame *METHOD_FRAME, index uint32) {
 }
 
 /******************************************************************
+    功能:Store64
+	入参:1、*METHOD_FRAME
+	    2、局部变量索引
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Store64(frame *METHOD_FRAME, index uint32) {
+	self.PC++
+	frame.SetVar(index+1, frame.Pop())
+	frame.SetVar(index, frame.Pop())
+}
+
+/******************************************************************
+    功能:Aconst_Null
+	入参:1、*METHOD_FRAME
+	    2、值
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) Aconst_Null(frame *METHOD_FRAME) {
+	self.PC++
+	frame.Push(uint32(0))
+}
+
+/******************************************************************
     功能:IConst
 	入参:1、*METHOD_FRAME
 	    2、值
@@ -1121,6 +1340,21 @@ func (self *METHOD_STACK) Store32(frame *METHOD_FRAME, index uint32) {
 func (self *METHOD_STACK) IConst(frame *METHOD_FRAME, value int32) {
 	self.PC++
 	frame.Push(uint32(value))
+}
+
+/******************************************************************
+    功能:IfNull
+	入参:*METHOD_FRAME
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) IfNull(frame *METHOD_FRAME) {
+	p := (*int16)(GetPointer(self.PC+1, 2))
+	v := uint32(frame.Pop())
+	if v == 0 {
+		self.PC = uint32(int32(self.PC) + int32(*p))
+	} else {
+		self.PC += 3
+	}
 }
 
 /******************************************************************
@@ -1214,6 +1448,12 @@ func (self *METHOD_STACK) Log(frame *METHOD_FRAME) {
 	}
 	fmt.Println()
 }
+
+/******************************************************************
+    功能:执行static代码块
+	入参:无
+    返回值:无
+******************************************************************/
 func CInit(adr uint32) {
 	classInfo := (*CLASS_INFO)(GetPointer(adr, CLASS_INFO_SIZE))
 	if classInfo.IsCInit {
@@ -1227,10 +1467,63 @@ func CInit(adr uint32) {
 	if methodInfo == nil || codeAdr == INVALID_MEM {
 		return
 	}
+	fmt.Println(string(GetSymbol(classInfo.ClassName)), "static{}")
 	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
 	//创建方法栈
 	methodStack := NewMethodStack()
 	methodStack.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, classInfo.LocalAdr, 0)
 	methodStack.PC = codeAdr + CODE_ATTRI_SIZE
 	methodStack.Excute()
+}
+
+/******************************************************************
+    功能:执行static代码块
+	入参:无
+    返回值:无
+******************************************************************/
+func (self *METHOD_STACK) ReflectMethod(frame *METHOD_FRAME, methodRef *MethodInfo) *METHOD_FRAME {
+	//获取this中的类
+	classAdr := GetClassMemAddr(methodRef.ClassName)
+	var classInfo *CLASS_INFO
+	var err error
+	if classAdr == INVALID_MEM {
+		classInfo, err = LoadClass(string(GetSymbol(methodRef.ClassName)))
+		if err != nil {
+			panic("ReflectMethod()")
+		}
+		CInit(classInfo.LocalAdr)
+	} else {
+		classInfo = (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
+	}
+	//查找方法
+	methodInfo, codeAdr := classInfo.FindMethod(methodRef.MethodName, methodRef.MethodDesp)
+	if methodInfo.AccessFlag&METHOD_ACC_NATIVE == METHOD_ACC_NATIVE {
+		ExcuteLocalMethodAdp(methodRef.ClassName, methodRef.MethodName, methodRef.MethodDesp, frame)
+
+		return frame
+	} else if codeAdr == INVALID_MEM {
+		panic("方法没找到!")
+	}
+	fmt.Println(string(GetSymbol(methodRef.ClassName)),
+		string(GetSymbol(methodRef.MethodName)),
+		string(GetSymbol(methodRef.MethodDesp)))
+
+	codeAttri := (*CODE_ATTRI)(GetPointer(codeAdr, CODE_ATTRI_SIZE))
+	//创建方法栈
+	newFrame := self.PushFrame(codeAttri.MaxLocal, codeAttri.MaxStack, classInfo.LocalAdr, self.PC)
+	self.PC = codeAdr + CODE_ATTRI_SIZE
+
+	//计算需要弹出的参数个数
+	num := CalParaSize(string(GetSymbol(methodRef.MethodDesp)))
+	param := make([]uint32, num)
+	//将上一个栈帧中的值弹出，保存到新的栈帧中的局部变量中
+	for i := num; i > 0; i-- {
+		param[i-1] = frame.Pop()
+	}
+	//获取this中的类
+	newFrame.SetVar(0, frame.Pop())
+	for i, k := range param {
+		newFrame.SetVar(uint32(i+1), k)
+	}
+	return newFrame
 }

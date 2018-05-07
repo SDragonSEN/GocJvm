@@ -95,6 +95,23 @@ func GetConstantPoolSlice(classAdr uint32) []byte {
 }
 
 /******************************************************************
+    功能:是否是Class常量
+	入参:1、Class索引
+    返回值:1、常量池切片
+******************************************************************/
+func IsClassConstant(classAdr, index uint32) bool {
+	classInfo := (*CLASS_INFO)(GetPointer(classAdr, CLASS_INFO_SIZE))
+
+	m := Memory[classInfo.LocalAdr+classInfo.ClassConstDev : classInfo.LocalAdr+classInfo.InterfaceDev]
+	for _, v := range *(*[]uint32)(BytesToArray(m, 4)) {
+		if v == index {
+			return true
+		}
+	}
+	return false
+}
+
+/******************************************************************
     功能:从常量池中读取class name
 	入参:1、常量池
 	    2、Class索引
@@ -148,6 +165,26 @@ func GetUint32FromConstPool(constPool []byte, index uint32) uint32 {
 	}
 	constItem := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(constPool[(index-1)*4:]))
 	return constItem.Param
+}
+
+/******************************************************************
+    功能:从常量池中读取Uint64
+	入参:1、常量池
+	    2、常量池索引
+    返回值:1、Uint32值
+	      2、error
+	注:常量池是从1开始计算的，不是从0
+******************************************************************/
+func GetUint64FromConstPool(constPool []byte, index uint32) (uint32, uint32) {
+	if index == 0 {
+		panic("GetUint32FromConstPool() 1")
+	}
+	if index > uint32(len(constPool)/4) {
+		panic("GetUint32FromConstPool() 2")
+	}
+	constItem := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(constPool[(index-1)*4:]))
+	constItem1 := (*CONSTANT_TYPE_32)(BytesToUnsafePointer(constPool[index*4:]))
+	return constItem.Param, constItem1.Param
 }
 
 /******************************************************************
