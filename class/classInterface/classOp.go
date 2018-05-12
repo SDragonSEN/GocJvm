@@ -156,7 +156,9 @@ func (self *CLASS_INFO) GetUnstaticDataIndex(filedName, descriptor uint32) uint3
 	classInfo := self
 	for {
 		fileds := *(*[]FILED_ITEM)(GetArrayPointer(classInfo.UnstaticParaDev+classInfo.LocalAdr, classInfo.UnstaticParaNum*FILED_ITEM_SIZE, FILED_ITEM_SIZE))
+		//fmt.Println(len(fileds), string(GetSymbol(self.ClassName)))
 		for _, filed := range fileds {
+			//fmt.Println(string(GetSymbol(filed.FiledName)))
 			if filed.FiledName == filedName {
 				return index + filed.Index
 			}

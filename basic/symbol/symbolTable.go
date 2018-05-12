@@ -29,6 +29,7 @@ var SYM_KD uint32
 
 var SYM_java_io_PrintStream uint32
 var SYM_println uint32
+var SYM_print uint32
 var SYM_Ljava_lang_String_V uint32
 var SYM_S_V uint32
 var SYM_CINIT uint32
@@ -61,6 +62,11 @@ func init() {
 	if err != nil {
 		panic("")
 	}
+	SYM_print, err = PutSymbol([]byte("print"))
+	if err != nil {
+		panic("")
+	}
+
 	SYM_Ljava_lang_String_V, err = PutSymbol([]byte("(Ljava/lang/String;)V"))
 	if err != nil {
 		panic("")

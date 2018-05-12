@@ -212,6 +212,11 @@ const (
 	AT_INT     = 10
 	AT_LONG    = 11
 )
+const (
+	GOJVM_NULL  = 0
+	GOJVM_TRUE  = 1
+	GOJVM_FALSE = 0
+)
 
 var m1 map[byte]string
 
